@@ -1,9 +1,9 @@
 pub mod preamble {
+    /// test
     pub use crate::error_handling::Result;
     pub use crate::tables::*;
+    pub use crate::types::*;
     pub use crate::wrapper::DB;
-
-    pub(crate) use crate::types::*;
     pub use rusqlite::Connection;
 }
 
@@ -192,10 +192,26 @@ pub mod query {
 
         use crate::{preamble::*, types::PathBufContainer};
 
-        pub fn list(conn: &mut Connection) -> Result<Vec<Document>> {
+        pub fn create(
+            conn: &mut Connection,
+            id: Uuid,
+            path: PathBuf,
+            hash: u64,
+            modified: OffsetDateTime,
+            created: OffsetDateTime,
+        ) -> Result<Uuid> {
             let mut query = conn.prepare(minify_sql!(
-                r#"select id, path, hash, modified, created from document"#
+                r#"insert into document (id, path, hash, modified, created) values (?,?,?,?,?) returning id"#
             ))?;
+            let res: Uuid = query.query_row(
+                params![id, PathBufContainer(path), hash, modified, created],
+                |r| r.get(0),
+            )?;
+
+            Ok(res)
+        }
+        pub fn list(conn: &mut Connection) -> Result<Vec<Document>> {
+            let mut query = conn.prepare(minify_sql!(r#"select * from document"#))?;
             let result = query
                 .query_map([], |r| {
                     Ok(Document {
@@ -210,36 +226,46 @@ pub mod query {
                 .collect::<Result<Vec<Document>>>()?;
             Ok(result)
         }
-        pub fn get(conn: &mut Connection) -> Result<Document> {
-            todo!()
+        pub fn get(conn: &mut Connection, id: Uuid) -> Result<Document> {
+            let mut query = conn.prepare(minify_sql!(
+                r#"select * from document where id = ? limit 1"#
+            ))?;
+            let result = query.query_row([id], |r| {
+                Ok(Document {
+                    id: r.get(0)?,
+                    path: (r.get::<usize, String>(1)?).into(),
+                    hash: r.get(2)?,
+                    modified: r.get(3)?,
+                    created: r.get(4)?,
+                })
+            })?;
+            Ok(result)
         }
-        pub fn create(
+        pub fn update(
             conn: &mut Connection,
+            id: Uuid,
             path: PathBuf,
             hash: u64,
             modified: OffsetDateTime,
             created: OffsetDateTime,
-        ) -> Result<Uuid> {
+        ) -> Result<()> {
             let mut query = conn.prepare(minify_sql!(
-                r#"insert into document (id, path, hash, modified, created) values (?,?,?,?,?) returning id"#
+                r#"update document
+                    set
+                        path = ?,
+                        hash = ?,
+                        modified = ?,
+                        created = ?
+                    where id = ?"#
             ))?;
-            let res = query.query_row(
-                params![
-                    Uuid::new_v4(),
-                    PathBufContainer(path),
-                    hash,
-                    modified,
-                    created
-                ],
-                |r| r.get(0),
-            )?;
-            Ok(res)
+            query.execute(params![PathBufContainer(path), hash, modified, created, id])?;
+            Ok(())
         }
-        pub fn update(conn: &mut Connection) -> Result<Vec<Document>> {
-            Ok(vec![])
-        }
-        pub fn delete(conn: &mut Connection) -> Result<Vec<Document>> {
-            Ok(vec![])
+
+        pub fn delete(conn: &mut Connection, id: Uuid) -> Result<()> {
+            let mut query = conn.prepare(minify_sql!(r#"delete from document where id = ?"#))?;
+            query.execute([id])?;
+            Ok(())
         }
 
         #[cfg(test)]
@@ -247,18 +273,112 @@ pub mod query {
             use super::*;
 
             #[test]
-            fn create_then_fetch() {
+            fn create_list() {
                 let mut db = DB::open(":memory:").unwrap();
                 let id = create(
                     &mut db,
+                    Uuid::new_v4(),
                     "some/path".into(),
                     0,
                     OffsetDateTime::now_utc(),
                     OffsetDateTime::now_utc(),
                 )
                 .unwrap();
+                let _id2 = create(
+                    &mut db,
+                    Uuid::new_v4(),
+                    "some/path2".into(),
+                    1,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
                 let documents = list(&mut db).unwrap();
                 assert!(!documents.is_empty());
+                assert!(documents.len() == 2);
+            }
+            #[test]
+            fn create_get() {
+                let mut db = DB::open(":memory:").unwrap();
+                let id = create(
+                    &mut db,
+                    Uuid::new_v4(),
+                    "some/path".into(),
+                    0,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
+                let document = get(&mut db, id).unwrap();
+                assert_eq!(document.id, id);
+            }
+            #[test]
+            fn create_get_update_get() {
+                let mut db = DB::open(":memory:").unwrap();
+                let id = create(
+                    &mut db,
+                    Uuid::new_v4(),
+                    "some/path".into(),
+                    0,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
+                let document_before = get(&mut db, id).unwrap();
+                update(
+                    &mut db,
+                    id,
+                    "some/new/path".into(),
+                    1,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
+                let document_after = get(&mut db, id).unwrap();
+                assert_ne!(document_before.path, document_after.path);
+                assert_ne!(document_before.hash, document_after.hash);
+                assert_eq!(document_before.id, document_after.id);
+            }
+            #[test]
+            fn create_get_update_get_delete_list() {
+                let mut db = DB::open(":memory:").unwrap();
+                let id_first = create(
+                    &mut db,
+                    Uuid::new_v4(),
+                    "some/path".into(),
+                    0,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
+                let id = create(
+                    &mut db,
+                    Uuid::new_v4(),
+                    "some/other/path".into(),
+                    1,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
+                let document_before = get(&mut db, id).unwrap();
+                update(
+                    &mut db,
+                    id,
+                    "some/new/path".into(),
+                    2,
+                    OffsetDateTime::now_utc(),
+                    OffsetDateTime::now_utc(),
+                )
+                .unwrap();
+                let document_after = get(&mut db, id).unwrap();
+                assert_ne!(document_before.path, document_after.path);
+                assert_ne!(document_before.hash, document_after.hash);
+                assert_eq!(document_before.id, document_after.id);
+                delete(&mut db, id).unwrap();
+                let mut documents = list(&mut db).unwrap();
+                assert!(!documents.is_empty());
+                let document = documents.pop().unwrap();
+                assert_eq!(document.id, id_first);
             }
         }
     }
