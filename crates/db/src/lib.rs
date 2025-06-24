@@ -216,7 +216,7 @@ pub mod query {
                 .query_map([], |r| {
                     Ok(Document {
                         id: r.get(0)?,
-                        path: (r.get::<usize, String>(1)?).into(),
+                        path: (r.get::<usize, PathBufContainer>(1)?).into(),
                         hash: r.get(2)?,
                         modified: r.get(3)?,
                         created: r.get(4)?,
@@ -233,7 +233,7 @@ pub mod query {
             let result = query.query_row([id], |r| {
                 Ok(Document {
                     id: r.get(0)?,
-                    path: (r.get::<usize, String>(1)?).into(),
+                    path: (r.get::<usize, PathBufContainer>(1)?).into(),
                     hash: r.get(2)?,
                     modified: r.get(3)?,
                     created: r.get(4)?,
