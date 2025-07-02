@@ -1,4 +1,6 @@
---- ============================ document ============================
+--- ==================================================================
+--  Document
+--- ==================================================================
 -- the unique document itself
 create table document (
     -- identifiers
@@ -15,3 +17,7 @@ create table document_metadata (
     document_id blob not null,     -- the document foreign key
     json_data blob not null        -- jsonb encoded json <https://sqlite.org/json1.html#jsonb>. Use the jsonb() function when inserting and reading from this table
 ) strict
+
+--- ==================================================================
+--  Document
+--- ==================================================================

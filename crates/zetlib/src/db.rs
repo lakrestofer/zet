@@ -1,157 +1,55 @@
-pub mod preamble {
-    /// test
-    pub use crate::error_handling::Result;
-    pub use crate::tables::*;
-    pub use crate::types::*;
-    pub use crate::wrapper::DB;
-    pub use rusqlite::Connection;
-}
+use rusqlite::Connection;
+use rusqlite_migration::{M, Migrations};
+use sql_minifier::macros::load_sql;
+use std::{
+    cell::LazyCell,
+    ops::{Deref, DerefMut},
+    path::Path,
+};
+use thiserror::Error;
 
-pub mod types {
-    //! This module contains some wrapper structs for some common types that we
-    //! want to write to and read from our db. It is a workaround for the typical
-    //! "cannot implement trait for foreign type" issue.
+use super::*;
 
-    use std::{path::PathBuf, str::FromStr};
+pub use conversion::*;
 
-    use rusqlite::{
-        ToSql,
-        types::{FromSql, FromSqlError, ToSqlOutput},
-    };
-    use serde::{Deserialize, Serialize};
-    use serde_json::Value;
+const DB_OPEN: &str = load_sql!("sql/db_open.sql");
+const DB_CLOSE: &str = load_sql!("sql/db_close.sql");
 
-    #[derive(Debug, Serialize, Deserialize)]
-    #[repr(transparent)]
-    pub struct JsonData(pub serde_json::Value);
+const MIGRATIONS: LazyCell<Migrations> =
+    LazyCell::new(|| Migrations::new(vec![M::up(load_sql!("sql/001_init.sql"))]));
 
-    impl FromSql for JsonData {
-        fn column_result(
-            value: rusqlite::types::ValueRef<'_>,
-        ) -> rusqlite::types::FromSqlResult<Self> {
-            let s = value.as_str()?;
-            match serde_json::from_str(s) {
-                Ok(v) => Ok(JsonData(v)),
-                Err(_) => Err(FromSqlError::InvalidType),
-            }
-        }
-    }
+#[repr(transparent)]
+pub struct DB(Connection);
 
-    impl ToSql for JsonData {
-        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-            Ok(self.0.to_string().into())
-        }
-    }
+impl DB {
+    pub fn open<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<DB> {
+        log::debug!("opening db at {:?}", path);
+        // open and create a sqlite db
+        let mut conn = Connection::open(path)?;
 
-    impl From<JsonData> for Value {
-        fn from(value: JsonData) -> Self {
-            value.0
-        }
-    }
+        conn.execute_batch(DB_OPEN)?;
 
-    #[derive(Debug, Serialize, Deserialize)]
-    #[repr(transparent)]
-    pub struct PathBufContainer(pub PathBuf);
+        MIGRATIONS.to_latest(&mut conn)?;
 
-    impl FromSql for PathBufContainer {
-        fn column_result(
-            value: rusqlite::types::ValueRef<'_>,
-        ) -> rusqlite::types::FromSqlResult<Self> {
-            let s = value.as_str()?;
-            let path = PathBuf::from_str(s).map_err(|_| FromSqlError::InvalidType)?;
-            Ok(PathBufContainer(path))
-        }
-    }
-    impl From<PathBufContainer> for PathBuf {
-        fn from(value: PathBufContainer) -> PathBuf {
-            value.0
-        }
-    }
-    impl ToSql for PathBufContainer {
-        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-            Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
-                self.0.to_string_lossy().into_owned(),
-            )))
-        }
+        Ok(DB(conn))
     }
 }
-
-pub mod error_handling {
-    use thiserror::Error;
-
-    #[derive(Error, Debug)]
-    pub enum Error {
-        #[error("rusqlite error: {0}")]
-        RusqliteError(rusqlite::Error),
-        #[error("migration error: {0}")]
-        MigrationError(rusqlite_migration::Error),
-    }
-
-    pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-    impl From<rusqlite::Error> for Error {
-        fn from(value: rusqlite::Error) -> Self {
-            Self::RusqliteError(value)
-        }
-    }
-    impl From<rusqlite_migration::Error> for Error {
-        fn from(value: rusqlite_migration::Error) -> Self {
-            Self::MigrationError(value)
-        }
+// util traits
+impl Drop for DB {
+    fn drop(&mut self) {
+        self.0.execute_batch(DB_CLOSE).unwrap();
     }
 }
+impl Deref for DB {
+    type Target = Connection;
 
-pub mod wrapper {
-    use crate::preamble::*;
-    use rusqlite::Connection;
-    use sql_minifier::macros::load_sql;
-    use std::{
-        cell::LazyCell,
-        ops::{Deref, DerefMut},
-        path::Path,
-    };
-
-    use rusqlite_migration::{M, Migrations};
-
-    const DB_OPEN: &str = load_sql!("sql/db_open.sql");
-    const DB_CLOSE: &str = load_sql!("sql/db_close.sql");
-
-    const MIGRATIONS: LazyCell<Migrations> =
-        LazyCell::new(|| Migrations::new(vec![M::up(load_sql!("sql/001_init.sql"))]));
-
-    #[repr(transparent)]
-    pub struct DB(Connection);
-
-    impl DB {
-        pub fn open<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<DB> {
-            log::debug!("opening db at {:?}", path);
-            // open and create a sqlite db
-            let mut conn = Connection::open(path)?;
-
-            conn.execute_batch(DB_OPEN)?;
-
-            MIGRATIONS.to_latest(&mut conn)?;
-
-            Ok(DB(conn))
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
-    // util traits
-    impl Drop for DB {
-        fn drop(&mut self) {
-            self.0.execute_batch(DB_CLOSE).unwrap();
-        }
-    }
-    impl Deref for DB {
-        type Target = Connection;
-
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-    impl DerefMut for DB {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.0
-        }
+}
+impl DerefMut for DB {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -179,18 +77,16 @@ pub mod tables {
 }
 
 pub mod query {
+    use super::*;
     pub mod document {
-        //! this module contains some simple CRUD functions for interacting with
-        //! the document sqlite table.
-        //! When possible, instead use the helpers in the query::utils module to
-        //! implement your feature
+        use super::*;
         use rusqlite::params;
         use sql_minifier::macros::minify_sql;
         use std::path::PathBuf;
         use time::OffsetDateTime;
         use uuid::Uuid;
 
-        use crate::{preamble::*, types::PathBufContainer};
+        use crate::db::{conversion::PathBufContainer, tables::Document};
 
         pub fn create(
             conn: &mut Connection,
@@ -201,8 +97,8 @@ pub mod query {
             created: OffsetDateTime,
         ) -> Result<Uuid> {
             let mut query = conn.prepare(minify_sql!(
-                r#"insert into document (id, path, hash, modified, created) values (?,?,?,?,?) returning id"#
-            ))?;
+            r#"insert into document (id, path, hash, modified, created) values (?,?,?,?,?) returning id"#
+        ))?;
             let res: Uuid = query.query_row(
                 params![id, PathBufContainer(path), hash, modified, created],
                 |r| r.get(0),
@@ -393,9 +289,74 @@ pub mod query {
     pub mod utils {}
 }
 
+pub mod conversion {
+    use std::{path::PathBuf, str::FromStr};
+
+    use rusqlite::{
+        ToSql,
+        types::{FromSql, FromSqlError, ToSqlOutput},
+    };
+    use serde::{Deserialize, Serialize};
+    use serde_json::Value;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[repr(transparent)]
+    pub struct JsonData(pub serde_json::Value);
+
+    impl FromSql for JsonData {
+        fn column_result(
+            value: rusqlite::types::ValueRef<'_>,
+        ) -> rusqlite::types::FromSqlResult<Self> {
+            let s = value.as_str()?;
+            match serde_json::from_str(s) {
+                Ok(v) => Ok(JsonData(v)),
+                Err(_) => Err(FromSqlError::InvalidType),
+            }
+        }
+    }
+
+    impl ToSql for JsonData {
+        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+            Ok(self.0.to_string().into())
+        }
+    }
+
+    impl From<JsonData> for Value {
+        fn from(value: JsonData) -> Self {
+            value.0
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[repr(transparent)]
+    pub struct PathBufContainer(pub PathBuf);
+
+    impl FromSql for PathBufContainer {
+        fn column_result(
+            value: rusqlite::types::ValueRef<'_>,
+        ) -> rusqlite::types::FromSqlResult<Self> {
+            let s = value.as_str()?;
+            let path = PathBuf::from_str(s).map_err(|_| FromSqlError::InvalidType)?;
+            Ok(PathBufContainer(path))
+        }
+    }
+    impl From<PathBufContainer> for PathBuf {
+        fn from(value: PathBufContainer) -> PathBuf {
+            value.0
+        }
+    }
+    impl ToSql for PathBufContainer {
+        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+            Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
+                self.0.to_string_lossy().into_owned(),
+            )))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::preamble::*;
+    use super::*;
 
     #[test]
     pub fn init() -> Result<()> {

@@ -1,12 +1,11 @@
 [workspace]
 resolver = "3"
-members = [ "crates/cache","crates/cli", "crates/db"]
+members = [ "crates/cli",  "crates/zetlib"]
 
 
 [workspace.dependencies]
 # internal
-cache = { path = "./crates/cache" }
-db = { path = "./crates/db" }
+zetlib = { path = "./crates/zetlib" }
 # external
 clap = { version = "4.5.40", features = ["derive"] }
 color-eyre = "0.6.5"
@@ -16,6 +15,9 @@ uuid = { version = "1.17.0", features = ["v4"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
 time = { version = "0.3.41", features = ["parsing", "formatting", "macros", "serde", "default"] }
-twox-hash = "2.1.1"
+twox-hash = { version = "2.1.1", features = ["xxhash3_64"]}
 thiserror = "2.0.12"
 sql_minifier = "0.1.5"
+ignore = { version = "0.4.23", features = ["simd-accel"] }
+rusqlite = { version = "0.36.0", features = ["time", "uuid"] }
+rusqlite_migration = "2.2.0"

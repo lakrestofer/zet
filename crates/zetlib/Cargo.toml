@@ -1,16 +1,17 @@
 [package]
-name = "db"
+name = "zetlib"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rusqlite = { version = "0.36.0",  features = ["bundled", "time", "uuid"] }
-rusqlite_migration = "2.2.0"
-sql_minifier = { workspace = true }
-env_logger = { workspace = true }
-log = { workspace = true }
+sql_minifier.workspace = true
 uuid = { workspace = true }
+log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
 thiserror = { workspace = true }
+rusqlite = { workspace = true }
+rusqlite_migration = { workspace = true }
+ignore = { workspace = true }
+twox-hash = { workspace = true }

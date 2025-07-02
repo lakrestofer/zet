@@ -1,9 +1,0 @@
-[package]
-name = "cache"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-db = { workspace = true }
-sql_minifier = { workspace = true }
-uuid = { workspace = true }
