@@ -20,6 +20,7 @@ pub struct CliInterfacce {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    Parse { path: PathBuf },
     Init,
     Lsp,
     Format,

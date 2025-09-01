@@ -19,5 +19,7 @@ twox-hash = { version = "2.1.1", features = ["xxhash3_64"]}
 thiserror = "2.0.12"
 sql_minifier = "0.1.5"
 ignore = { version = "0.4.23", features = ["simd-accel"] }
-rusqlite = { version = "0.36.0", features = ["time", "uuid"] }
+rusqlite = { version = "0.36.0", features = ["time", "uuid", "bundled"] }
 rusqlite_migration = "2.2.0"
+pulldown-cmark = { version = "0.13.0", features = ["serde", "simd"] }
+gray_matter = "0.2.8"
