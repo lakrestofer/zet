@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 /// Your PKM Assistant             
 #[derive(Parser)]
 #[command(version, about, long_about, verbatim_doc_comment)]
-pub struct CliInterfacce {
+pub struct CliInterface {
     /// Tell zet to look for a .zet directory in `root`.
     /// If no such directory could be found, zet will look in user data
     #[arg(long)]

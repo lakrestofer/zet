@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use time::OffsetDateTime;
 
+pub mod cli;
 pub mod collection;
 pub mod db;
 pub mod parser;
