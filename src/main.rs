@@ -9,15 +9,18 @@ use zet::{
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    let cli = CliInterface::parse();
 
-    let config = ZetConfig {
-        root: std::env::current_dir()?,
-        front_matter_format: FrontMatterFormat::Toml,
-    };
+    let cli = CliInterface::parse();
 
     let env = Env::new().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
+
+    let config = ZetConfig {
+        root: zet::resolve_root(cli.root)?,
+        front_matter_format: FrontMatterFormat::Toml,
+    };
+
+    log::debug!("root: {:?}", config.root);
 
     match cli.command {
         zet::cli::Command::Parse { path } => {

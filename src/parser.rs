@@ -1,12 +1,35 @@
+pub mod ast_nodes;
+
 use std::ops::Range;
 
-use crate::*;
+use crate::{
+    parser::ast_nodes::{Heading, *},
+    *,
+};
 use gray_matter::{
     Matter,
     engine::{JSON, TOML, YAML},
 };
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{
+    CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, OffsetIter, Options, Parser, Tag, TagEnd,
+};
 use serde::{Deserialize, Serialize};
+
+pub struct ParserIterator<'a> {
+    inner: OffsetIter<'a>,
+}
+
+impl<'a> Iterator for ParserIterator<'a> {
+    type Item = (Event<'a>, Range<usize>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let e = self.inner.next();
+        if let Some(e) = &e {
+            log::debug!("event: {:?}", e);
+        }
+        e
+    }
+}
 
 pub fn parse(
     frontmatter_parser: FrontMatterParser,
@@ -17,7 +40,7 @@ pub fn parse(
 
     log::debug!("frontmatter: {:?}", frontmatter);
 
-    let events = document_parser.parse(content);
+    let _events = document_parser.parse(content);
 
     Ok(())
 }
@@ -73,6 +96,8 @@ impl Default for DocumentParser {
         options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
         options.insert(Options::ENABLE_MATH);
         options.insert(Options::ENABLE_WIKILINKS);
+        // options.insert(Options::ENABLE_GFM);
+        // options.remove(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
         Self { options }
     }
 }
@@ -85,166 +110,484 @@ impl DocumentParser {
     pub fn parse(&self, document: String) -> Result<()> {
         let parser = Parser::new_ext(&document, self.options);
 
-        let parser_with_offset = parser.into_offset_iter();
+        let mut parser_with_offset = ParserIterator {
+            inner: parser.into_offset_iter(),
+        };
 
-        let mut heading_processor: HeadingProcessor<DefaultHeadingHandler> =
-            HeadingProcessor::default();
+        let mut children: Vec<ast_nodes::Node> = Vec::new();
 
-        for (event, range) in parser_with_offset {
-            // log::debug!("location: {:?}, event: {:?}", range, event);
-            heading_processor.process(event, range);
+        while let Some((event, range)) = parser_with_offset.next() {
+            children.push(parse_event(event, range, &mut parser_with_offset)?);
         }
+
+        // log::debug!("children: {:?}", children);
 
         Ok(())
     }
 }
 
-#[derive(Default)]
-struct HeadingProcessor<T: HeadingHandler = DefaultHeadingHandler> {
-    state: HeadingParserState,
-    handler: T,
-}
-
-impl<T: HeadingHandler> HeadingProcessor<T> {
-    pub fn process(&mut self, event: Event<'_>, range: Range<usize>) {
-        use HeadingParserState::*;
-
-        if let Some(new_state) = match (&self.state, event) {
-            (
-                Start,
-                Event::Start(Tag::Heading {
-                    level,
-                    id,
-                    classes,
-                    attrs,
-                }),
-            ) => Some(Content {
-                level,
-                id: id.map(|id| id.into_string()),
-                classes: classes
-                    .into_iter()
-                    .map(|class| class.into_string())
-                    .collect(),
-                attrs: attrs
-                    .into_iter()
-                    .map(|(key, value)| (key.into_string(), value.map(|v| v.into_string())))
-                    .collect(),
-            }),
-            (
-                Content {
-                    level,
-                    id,
-                    classes,
-                    attrs,
-                },
-                Event::Text(content),
-            ) => Some(End {
-                level: *level,
-                id: id.clone(),
-                classes: classes.clone(),
-                attrs: attrs.clone(),
-                content: content.to_string(),
-            }),
-            (
-                Content {
-                    level,
-                    id,
-                    classes,
-                    attrs,
-                },
-                Event::End(TagEnd::Heading(_)),
-            ) => {
-                self.handler.handle(Heading::new(
-                    *level,
-                    id.clone(),
-                    classes.clone(),
-                    attrs.clone(),
-                    "".into(),
-                ));
-                Some(Start)
-            }
-            (
-                End {
-                    level,
-                    id,
-                    classes,
-                    attrs,
-                    content,
-                },
-                Event::End(TagEnd::Heading(_)),
-            ) => {
-                self.handler.handle(Heading::new(
-                    *level,
-                    id.clone(),
-                    classes.clone(),
-                    attrs.clone(),
-                    content.clone(),
-                ));
-                Some(Start)
-            }
-            _ => None,
-        } {
-            self.state = new_state
-        }
+fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
+    match event {
+        Event::Start(tag) => parse_start(tag, range, iter),
+        Event::End(_) => Ok(NotImplemented::new(range).into()),
+        Event::Text(cow_str) => parse_text(range, iter),
+        Event::Code(cow_str) => Ok(NotImplemented::new(range).into()),
+        Event::InlineMath(cow_str) => Ok(NotImplemented::new(range).into()),
+        Event::DisplayMath(cow_str) => Ok(NotImplemented::new(range).into()),
+        Event::Html(cow_str) => Ok(NotImplemented::new(range).into()),
+        Event::InlineHtml(cow_str) => Ok(NotImplemented::new(range).into()),
+        Event::FootnoteReference(cow_str) => Ok(NotImplemented::new(range).into()),
+        Event::SoftBreak => Ok(NotImplemented::new(range).into()),
+        Event::HardBreak => Ok(NotImplemented::new(range).into()),
+        Event::Rule => Ok(NotImplemented::new(range).into()),
+        Event::TaskListMarker(_) => Ok(NotImplemented::new(range).into()),
     }
 }
 
-#[derive(Default)]
-enum HeadingParserState {
-    #[default]
-    Start, // we are waiting for a Start(Tag::Heading) event
-    Content {
-        level: HeadingLevel,
-        id: Option<String>,
-        classes: Vec<String>,
-        attrs: Vec<(String, Option<String>)>,
-    }, // we are waiting for a paragraph
-    End {
-        level: HeadingLevel,
-        id: Option<String>,
-        classes: Vec<String>,
-        attrs: Vec<(String, Option<String>)>,
-        content: String,
-    }, // we are waiting for an End(Tag::Heading) event
-}
-trait HeadingHandler {
-    fn handle(&mut self, heading: Heading);
+fn parse_text(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    todo!()
 }
 
-#[derive(Copy, Clone, Default, Debug)]
-struct DefaultHeadingHandler;
-
-impl HeadingHandler for DefaultHeadingHandler {
-    fn handle(&mut self, heading: Heading) {
-        log::debug!("handling heading: {:?}", heading);
-    }
-}
-
-#[derive(Debug)]
-struct Heading {
-    level: HeadingLevel,
-    id: Option<String>,
-    classes: Vec<String>,
-    attrs: Vec<(String, Option<String>)>,
-    content: String,
-}
-
-impl Heading {
-    pub fn new(
-        level: HeadingLevel,
-        id: Option<String>,
-        classes: Vec<String>,
-        attrs: Vec<(String, Option<String>)>,
-        content: String,
-    ) -> Self {
-        Self {
+fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
+    match start_tag {
+        Tag::Heading {
             level,
             id,
             classes,
             attrs,
-            content,
+        } => parse_heading(level, id, classes, attrs, range, iter),
+        Tag::Paragraph => parse_paragraph(range, iter),
+        Tag::BlockQuote(kind) => parse_blockquote(kind, range, iter),
+        Tag::CodeBlock(kind) => parse_code_block(kind, range, iter),
+        Tag::HtmlBlock => parse_htmlblock(range, iter),
+        Tag::List(n) => parse_list(n, range, iter),
+        Tag::Item => parse_item(range, iter),
+        Tag::FootnoteDefinition(str) => parse_footnote_def(str, range, iter),
+        Tag::DefinitionList => parse_def_list(range, iter),
+        Tag::DefinitionListTitle => parse_def_list_title(range, iter),
+        Tag::DefinitionListDefinition => parse_def_list_def(range, iter),
+        Tag::Table(alignments) => parse_table(alignments, range, iter),
+        Tag::TableHead => parse_table_head(range, iter).map(|h| h.into()),
+        Tag::TableRow => parse_table_row(range, iter).map(|r| r.into()),
+        Tag::TableCell => parse_table_cell(range, iter).map(|c| c.into()),
+        Tag::Emphasis => parse_text_decor(TextDecorationKind::Emphasis, range, iter),
+        Tag::Strong => parse_text_decor(TextDecorationKind::Strong, range, iter),
+        Tag::Strikethrough => parse_text_decor(TextDecorationKind::Strikethrough, range, iter),
+        Tag::Superscript => parse_text_decor(TextDecorationKind::Superscript, range, iter),
+        Tag::Subscript => parse_text_decor(TextDecorationKind::Subscript, range, iter),
+        Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        } => parse_link(link_type, dest_url, title, id, range, iter),
+        Tag::Image {
+            link_type,
+            dest_url,
+            title,
+            id,
+        } => parse_image(link_type, dest_url, title, id, range, iter),
+        Tag::MetadataBlock(metadata_block_kind) => {
+            parse_metadata_block(metadata_block_kind, range, iter)
         }
     }
+}
+
+fn parse_metadata_block(
+    kind: pulldown_cmark::MetadataBlockKind,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Image) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(MetadataBlock::new(range, kind).into())
+}
+
+fn parse_image(
+    link_type: LinkType,
+    dest_url: CowStr<'_>,
+    title: CowStr<'_>,
+    id: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    while let Some((event, _)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Image) => break,
+            _ => {} // ignore link children
+        }
+    }
+    match link_type {
+        LinkType::Inline => Ok(InlineImage::new(range).into()),
+        LinkType::Reference
+        | LinkType::ReferenceUnknown
+        | LinkType::Collapsed
+        | LinkType::CollapsedUnknown => Ok(ReferenceImage::new(range).into()),
+        _ => Err(Error::ParseError("not implemented yet".into())),
+    }
+}
+
+fn parse_link(
+    link_type: LinkType,
+    dest_url: CowStr<'_>,
+    title: CowStr<'_>,
+    id: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Link) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    match link_type {
+        LinkType::Inline => Ok(InlineLink::new(
+            range,
+            children,
+            dest_url.to_string(),
+            Some(title.to_string()),
+        )
+        .into()),
+        LinkType::Reference
+        | LinkType::ReferenceUnknown
+        | LinkType::Collapsed
+        | LinkType::CollapsedUnknown => {
+            Ok(ReferenceLink::new(range, children, "todo".into()).into())
+        }
+        LinkType::Shortcut | LinkType::ShortcutUnknown => {
+            Ok(ShortcutLink::new(range, children).into())
+        }
+        LinkType::Autolink | LinkType::Email => Ok(AutoLink::new(range, children).into()),
+        LinkType::WikiLink { .. } => Ok(WikiLink::new(range, children).into()),
+    }
+}
+
+// TODO: do we need to constraint the end tag such that we only search for the
+// same end as `kind`?
+fn parse_text_decor(
+    kind: TextDecorationKind,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Emphasis) => break,
+            Event::End(TagEnd::Strong) => break,
+            Event::End(TagEnd::Strikethrough) => break,
+            Event::End(TagEnd::Superscript) => break,
+            Event::End(TagEnd::Subscript) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(TextDecoration {
+        range,
+        kind,
+        children,
+    }
+    .into())
+}
+
+fn parse_table_cell(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableCell> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::TableCell) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(TableCell::new(range, children))
+}
+
+fn parse_table_row(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<TableRow, Error> {
+    let mut cells = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::TableRow) => break,
+            Event::Start(Tag::TableCell) => cells.push(parse_table_cell(range, iter)?),
+            _ => return Err(Error::ParseError("expected table row".into())),
+        }
+    }
+
+    Ok(TableRow::new(range, cells))
+}
+
+fn parse_table(
+    alignments: Vec<pulldown_cmark::Alignment>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let header = if let Some((Event::Start(Tag::TableHead), range)) = iter.next() {
+        parse_table_head(range, iter)?
+    } else {
+        return Err(Error::ParseError(
+            "header expected but recieved none".into(),
+        ));
+    };
+
+    let mut rows = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Table) => break,
+            Event::Start(Tag::TableRow) => rows.push(parse_table_row(range, iter)?),
+            _ => return Err(Error::ParseError("expected table row".into())),
+        }
+    }
+
+    Ok(Table::new(
+        range,
+        header,
+        alignments
+            .into_iter()
+            .map(|a| match a {
+                pulldown_cmark::Alignment::None => ColumnAlignment::None,
+                pulldown_cmark::Alignment::Left => ColumnAlignment::Left,
+                pulldown_cmark::Alignment::Center => ColumnAlignment::Center,
+                pulldown_cmark::Alignment::Right => ColumnAlignment::Right,
+            })
+            .collect(),
+        rows,
+    )
+    .into())
+}
+
+fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableHead> {
+    todo!()
+}
+
+fn parse_def_list_def(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::DefinitionListDefinition) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+    Ok(DefinitionListDefinition::new(range, children).into())
+}
+
+fn parse_def_list_title(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::DefinitionListTitle) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(DefinitionListTitle::new(range, children).into())
+}
+
+fn parse_def_list(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::DefinitionList) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(DefinitionList::new(range, children).into())
+}
+
+fn parse_footnote_def(
+    name: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::FootnoteDefinition) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(FootnoteDefinition::new(range, name.to_string(), children).into())
+}
+
+fn parse_item(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+    let mut sub_lists = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Item) => break,
+            Event::Start(Tag::List(_)) => sub_lists.push(parse_event(event, range, iter)?),
+            _ => {
+                children.append(&mut sub_lists);
+                children.push(parse_event(event, range, iter)?)
+            }
+        }
+    }
+
+    Ok(Item::new(range, children, sub_lists).into())
+}
+
+fn parse_list(
+    n: Option<u64>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::List(_)) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(List::new(range, n, children).into())
+}
+
+fn parse_htmlblock(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::HtmlBlock) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(Html::new(range, children).into())
+}
+
+fn parse_code_block(
+    kind: pulldown_cmark::CodeBlockKind<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::CodeBlock) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    let is_fenced = matches!(kind, CodeBlockKind::Fenced(_));
+    let tag = match kind {
+        CodeBlockKind::Indented => None,
+        CodeBlockKind::Fenced(tag) => {
+            let tag = String::from(tag.as_ref().trim());
+            if tag.is_empty() { None } else { Some(tag) }
+        }
+    };
+
+    Ok(CodeBlock::new(range, tag, is_fenced, children).into())
+}
+
+fn parse_blockquote(
+    kind: Option<pulldown_cmark::BlockQuoteKind>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::BlockQuote(_)) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(BlockQuote::new(range, children).into())
+}
+
+fn parse_paragraph(
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, Error> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Paragraph) => break,
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(Paragraph::new(range, children).into())
+}
+
+fn parse_heading(
+    level: HeadingLevel,
+    id: Option<CowStr<'_>>,
+    classes: Vec<CowStr<'_>>,
+    attrs: Vec<(CowStr<'_>, Option<CowStr<'_>>)>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Heading(end_level)) => {
+                if end_level == level {
+                    break;
+                }
+            }
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(Heading {
+        id: id.map(|s| s.to_string()),
+        range: range,
+        level: level as u8,
+        children,
+        classes: classes.iter().map(|s| s.to_string()).collect(),
+        attributes: attrs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.as_ref().map(|s| s.to_string())))
+            .collect(),
+    }
+    .into())
 }
 
 pub type FrontMatter = serde_json::Value;

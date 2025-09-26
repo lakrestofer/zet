@@ -24,6 +24,8 @@ pub enum Error {
     MigrationError(rusqlite_migration::Error),
     #[error("io error: {0}")]
     IOError(std::io::Error),
+    #[error("parse error: {0}")]
+    ParseError(String),
     #[error("CollectionNotFoundError: could not find .marks folder")]
     CollectionNotFoundError,
     #[error("NoParentError: path had no parent folder")]
@@ -55,7 +57,16 @@ pub fn app_work_dir(dir: &Path) -> PathBuf {
 
 /// from CWD walks up the directory tree until a directory containing .markz
 /// is found or $HOME is reached, whichever comes first
-pub fn resolve_root() -> Result<PathBuf> {
+pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
+    if let Some(dir) = dir {
+        if !app_work_dir(&dir).is_dir() {
+            log::error!("provided root dir does not contain a .zet directory!");
+            return Err(Error::CollectionNotFoundError);
+        } else {
+            return Ok(dir);
+        }
+    }
+
     let mut dir = std::path::absolute(std::env::current_dir()?)?;
     log::debug!("resolving markz root directory, starting from {:?}", dir);
     // check if dir contains .markz or of $HOME has been reached
@@ -63,7 +74,7 @@ pub fn resolve_root() -> Result<PathBuf> {
         dir = match dir.parent() {
             Some(p) => p.to_owned(),
             None => {
-                log::error!("no .markz directory found");
+                log::error!("{:?} had no parent!", dir);
                 return Err(Error::NoParentError);
             }
         }
@@ -73,6 +84,7 @@ pub fn resolve_root() -> Result<PathBuf> {
         log::error!("no .markz directory found");
         return Err(Error::CollectionNotFoundError);
     }
+    log::debug!("markz root directory resolved to {:?}", dir);
 
     Ok(dir)
 }
