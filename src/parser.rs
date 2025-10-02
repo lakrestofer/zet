@@ -1,7 +1,5 @@
 pub mod ast_nodes;
 
-use std::ops::Range;
-
 use crate::{
     parser::ast_nodes::{Heading, *},
     *,
@@ -14,20 +12,18 @@ use pulldown_cmark::{
     CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, OffsetIter, Options, Parser, Tag, TagEnd,
 };
 use serde::{Deserialize, Serialize};
+use std::{iter::Peekable, ops::Range};
 
 pub struct ParserIterator<'a> {
-    inner: OffsetIter<'a>,
+    inner: Peekable<OffsetIter<'a>>,
+    text: &'a str,
 }
 
 impl<'a> Iterator for ParserIterator<'a> {
     type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let e = self.inner.next();
-        if let Some(e) = &e {
-            log::debug!("event: {:?}", e);
-        }
-        e
+        self.inner.next()
     }
 }
 
@@ -40,7 +36,9 @@ pub fn parse(
 
     log::debug!("frontmatter: {:?}", frontmatter);
 
-    let _events = document_parser.parse(content);
+    let events = document_parser.parse(content)?;
+
+    println!("{:?}", events);
 
     Ok(())
 }
@@ -107,22 +105,27 @@ impl DocumentParser {
         Self::default()
     }
 
-    pub fn parse(&self, document: String) -> Result<()> {
+    pub fn parse(&self, document: String) -> Result<SourceFile> {
         let parser = Parser::new_ext(&document, self.options);
 
         let mut parser_with_offset = ParserIterator {
-            inner: parser.into_offset_iter(),
+            inner: parser.into_offset_iter().peekable(),
+            text: document.as_str(),
         };
 
-        let mut children: Vec<ast_nodes::Node> = Vec::new();
+        let mut nodes: Vec<ast_nodes::Node> = Vec::new();
 
         while let Some((event, range)) = parser_with_offset.next() {
-            children.push(parse_event(event, range, &mut parser_with_offset)?);
+            nodes.push(parse_event(event, range, &mut parser_with_offset)?);
         }
 
-        // log::debug!("children: {:?}", children);
-
-        Ok(())
+        Ok(SourceFile {
+            children: nodes,
+            range: Range {
+                start: 0,
+                end: document.len(),
+            },
+        })
     }
 }
 
@@ -130,25 +133,106 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
     match event {
         Event::Start(tag) => parse_start(tag, range, iter),
         Event::End(_) => Ok(NotImplemented::new(range).into()),
-        Event::Text(cow_str) => parse_text(range, iter),
-        Event::Code(cow_str) => Ok(NotImplemented::new(range).into()),
-        Event::InlineMath(cow_str) => Ok(NotImplemented::new(range).into()),
-        Event::DisplayMath(cow_str) => Ok(NotImplemented::new(range).into()),
-        Event::Html(cow_str) => Ok(NotImplemented::new(range).into()),
-        Event::InlineHtml(cow_str) => Ok(NotImplemented::new(range).into()),
-        Event::FootnoteReference(cow_str) => Ok(NotImplemented::new(range).into()),
-        Event::SoftBreak => Ok(NotImplemented::new(range).into()),
-        Event::HardBreak => Ok(NotImplemented::new(range).into()),
-        Event::Rule => Ok(NotImplemented::new(range).into()),
-        Event::TaskListMarker(_) => Ok(NotImplemented::new(range).into()),
+        Event::Text(str) => parse_text(str, range, iter),
+        Event::Code(str) => parse_code(str, range, iter),
+        Event::InlineMath(str) => parse_inline_math(str, range, iter),
+        Event::DisplayMath(str) => parse_display_math(str, range, iter),
+        Event::Html(str) => parse_html(str, range, iter),
+        Event::InlineHtml(str) => parse_inline_html(str, range, iter),
+        Event::FootnoteReference(str) => parse_footnote_ref(str, range, iter),
+        Event::SoftBreak => parse_soft_break(range, iter),
+        Event::HardBreak => parse_hard_break(range, iter),
+        Event::Rule => parse_rule(range, iter),
+        Event::TaskListMarker(checked) => parse_tasklist_marker(checked, range, iter),
     }
 }
 
-fn parse_text(
+fn parse_tasklist_marker(
+    checked: bool,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
-    todo!()
+) -> Result<Node> {
+    Ok(TaskListMarker {
+        range,
+        is_checked: checked,
+    }
+    .into())
+}
+
+fn parse_rule(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+    Ok(Node::HorizontalRule(HorizontalRule { range: range }))
+}
+
+fn parse_hard_break(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+    Ok(HardBreak { range }.into())
+}
+
+fn parse_soft_break(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+    Ok(SoftBreak { range }.into())
+}
+
+fn parse_footnote_ref(
+    name: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    Ok(FootnoteReference {
+        range: range,
+        name: String::from(name.as_ref()),
+    }
+    .into())
+}
+
+fn parse_inline_html(
+    cow_str: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    Ok(Html { range }.into())
+}
+
+fn parse_html(
+    cow_str: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    Ok(Html { range }.into())
+}
+
+fn parse_text(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+    return Ok(Text {
+        text: cow.to_string(),
+        range,
+    }
+    .into());
+}
+
+fn parse_display_math(
+    cow: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    Ok(DisplayMath { range }.into())
+}
+
+fn parse_inline_math(
+    cow: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
+    Ok(InlineMath { range }.into())
+}
+
+fn parse_code(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+    let mut raw_text = &iter.text[range.clone()];
+    while raw_text.starts_with("`") && raw_text.ends_with("`") {
+        raw_text = &raw_text[1..(raw_text.len() - 1)];
+    }
+    Ok(Code {
+        range,
+        code: raw_text.to_string(),
+    }
+    .into())
 }
 
 fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
@@ -375,7 +459,17 @@ fn parse_table(
 }
 
 fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableHead> {
-    todo!()
+    let mut cells = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::TableHead) => break,
+            Event::Start(Tag::TableHead) => cells.push(parse_table_cell(range, iter)?),
+            _ => return Err(Error::ParseError("".into())),
+        }
+    }
+
+    Ok(TableHead { range, cells })
 }
 
 fn parse_def_list_def(
@@ -493,7 +587,7 @@ fn parse_htmlblock(
         }
     }
 
-    Ok(Html::new(range, children).into())
+    Ok(Html::new(range).into())
 }
 
 fn parse_code_block(

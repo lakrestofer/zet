@@ -26,7 +26,7 @@ pub enum Error {
     IOError(std::io::Error),
     #[error("parse error: {0}")]
     ParseError(String),
-    #[error("CollectionNotFoundError: could not find .marks folder")]
+    #[error("CollectionNotFoundError: could not find .zet folder")]
     CollectionNotFoundError,
     #[error("NoParentError: path had no parent folder")]
     NoParentError,
@@ -55,7 +55,7 @@ pub fn app_work_dir(dir: &Path) -> PathBuf {
     dir.to_owned().join(format!(".{APP_NAME}"))
 }
 
-/// from CWD walks up the directory tree until a directory containing .markz
+/// from CWD walks up the directory tree until a directory containing .zet
 /// is found or $HOME is reached, whichever comes first
 pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(dir) = dir {
@@ -68,8 +68,8 @@ pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     }
 
     let mut dir = std::path::absolute(std::env::current_dir()?)?;
-    log::debug!("resolving markz root directory, starting from {:?}", dir);
-    // check if dir contains .markz or of $HOME has been reached
+    log::debug!("resolving zet root directory, starting from {:?}", dir);
+    // check if dir contains .zet or if / have been reached
     while !app_work_dir(&dir).is_dir() {
         dir = match dir.parent() {
             Some(p) => p.to_owned(),
@@ -81,10 +81,10 @@ pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     }
 
     if !app_work_dir(&dir).is_dir() {
-        log::error!("no .markz directory found");
+        log::error!("no .zet directory found");
         return Err(Error::CollectionNotFoundError);
     }
-    log::debug!("markz root directory resolved to {:?}", dir);
+    log::debug!("zet root directory resolved to {:?}", dir);
 
     Ok(dir)
 }
