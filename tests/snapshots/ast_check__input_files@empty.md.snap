@@ -3,7 +3,8 @@ source: tests/ast_check.rs
 expression: res
 input_file: tests/input_files/empty.md
 ---
-range:
-  start: 0
-  end: 0
-children: []
+- ~
+- range:
+    start: 0
+    end: 0
+  children: []
