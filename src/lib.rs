@@ -55,8 +55,8 @@ pub fn app_work_dir(dir: &Path) -> PathBuf {
     dir.to_owned().join(format!(".{APP_NAME}"))
 }
 
-/// from CWD walks up the directory tree until a directory containing .zet
-/// is found or $HOME is reached, whichever comes first
+/// from CWD, walk up the directory tree until a directory containing .zet
+/// is found or / is reached
 pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(dir) = dir {
         if !app_work_dir(&dir).is_dir() {

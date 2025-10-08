@@ -38,7 +38,9 @@
             inherit inputs pkgs;
             modules = [
               {
-                packages = [ ];
+                packages = with pkgs; [
+                  cargo-insta
+                ];
 
                 languages.rust = {
                   enable = true;

@@ -31,16 +31,19 @@ pub fn parse(
     frontmatter_parser: FrontMatterParser,
     document_parser: DocumentParser,
     document: String,
-) -> Result<()> {
+) -> Result<SourceFile> {
     let (frontmatter, content) = frontmatter_parser.parse(document);
 
-    log::debug!("frontmatter: {:?}", frontmatter);
+    // log::debug!("frontmatter: {:?}", frontmatter);
 
     let events = document_parser.parse(content)?;
 
-    println!("{:?}", events);
+    // let json = serde_json::to_string_pretty(&events)
+    //     .map_err(|_| Error::ParseError("could not convert serialize to json".into()))?;
 
-    Ok(())
+    // println!("{}", json);
+
+    Ok(events)
 }
 
 #[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Default, Debug)]

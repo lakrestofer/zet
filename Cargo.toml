@@ -26,3 +26,10 @@ rusqlite = { version = "0.36.0", features = ["time", "uuid", "bundled"] }
 rusqlite_migration = "2.2.0"
 pulldown-cmark = { version = "0.13.0", features = ["serde", "simd"] }
 gray_matter = "0.2.8"
+
+[dev-dependencies]
+insta = { version = "1.43.2", features = ["glob", "yaml"] }
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3

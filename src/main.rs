@@ -34,7 +34,7 @@ fn main() -> Result<()> {
 
                     let document = std::fs::read_to_string(path)?;
 
-                    zet::parser::parse(frontmatter_parser, content_parser, document)?;
+                    _ = zet::parser::parse(frontmatter_parser, content_parser, document)?;
                 }
                 zet::cli::Command::Lsp => todo!(),
                 zet::cli::Command::Format => todo!(),
