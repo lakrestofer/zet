@@ -39,6 +39,7 @@
             modules = [
               {
                 packages = with pkgs; [
+                  bun
                   cargo-insta
                 ];
 

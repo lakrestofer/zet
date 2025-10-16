@@ -3,3 +3,4 @@
 .direnv
 target
 .zet
+node_modules
