@@ -1,0 +1,12 @@
+[[language]]
+name = "markdown"
+scope = "source.md"
+injection-regex = "md|markdown"
+file-types = ["md", "markdown"]
+language-servers = ["cspell"]
+auto-format = true
+formatter = { command = "dprint", args = ["fmt", "--stdin", "md"] }
+
+[language-server.cspell]
+command = "bunx"
+args = ["cspell-lsp", "--stdio"]

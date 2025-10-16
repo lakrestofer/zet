@@ -1,3 +1,3 @@
 # zet
 
-Your markdown zettlekasten assistant.
+Your markdown zettelkasten assistant.
