@@ -4,6 +4,7 @@ use crate::{
     parser::ast_nodes::{Heading, *},
     *,
 };
+use color_eyre::eyre::eyre;
 use gray_matter::{
     Matter,
     engine::{JSON, TOML, YAML},
@@ -35,6 +36,11 @@ pub fn parse(
     let (frontmatter, content) = frontmatter_parser.parse(document);
 
     let events = document_parser.parse(content)?;
+
+    let events_json = serde_json::to_string_pretty(&events)
+        .map_err(|_| Error::ParseError("could not convert to json".into()))?;
+
+    log::debug!("{}", events_json);
 
     Ok((frontmatter, events))
 }
@@ -90,6 +96,7 @@ impl Default for DocumentParser {
         options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
         options.insert(Options::ENABLE_MATH);
         options.insert(Options::ENABLE_WIKILINKS);
+        options.insert(Options::ENABLE_TABLES);
         // options.insert(Options::ENABLE_GFM);
         // options.remove(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
         Self { options }

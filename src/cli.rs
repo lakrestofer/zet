@@ -22,8 +22,14 @@ pub struct CliInterface {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    Parse { path: PathBuf },
-    Init,
+    Parse {
+        path: PathBuf,
+    },
+    Init {
+        path: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
     Lsp,
     Format,
 }

@@ -8,8 +8,10 @@ pub mod cli;
 pub mod collection;
 pub mod db;
 pub mod parser;
+pub mod workspace;
 
 pub const APP_NAME: &str = "zet";
+pub const DB_NAME: &str = "db.sqlite";
 
 pub struct ZetConfig {
     pub root: PathBuf,
@@ -30,6 +32,8 @@ pub enum Error {
     CollectionNotFoundError,
     #[error("NoParentError: path had no parent folder")]
     NoParentError,
+    #[error("InitError")]
+    InitError,
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -51,8 +55,14 @@ impl From<rusqlite_migration::Error> for Error {
 }
 
 /// the .zet directory
-pub fn app_work_dir(dir: &Path) -> PathBuf {
-    dir.to_owned().join(format!(".{APP_NAME}"))
+pub fn app_work_dir(root: &Path) -> PathBuf {
+    root.to_owned().join(format!(".{APP_NAME}"))
+}
+
+pub fn db_dir(root: &Path) -> PathBuf {
+    root.to_owned()
+        .join(format!(".{APP_NAME}"))
+        .join(format!("{DB_NAME}"))
 }
 
 /// from CWD, walk up the directory tree until a directory containing .zet

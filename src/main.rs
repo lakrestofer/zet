@@ -16,7 +16,9 @@ fn main() -> Result<()> {
     env_logger::init_from_env(env);
 
     match cli.command {
-        zet::cli::Command::Init => todo!(),
+        zet::cli::Command::Init { path, force } => {
+            zet::workspace::init(path, force)?;
+        }
         command => {
             let config = ZetConfig {
                 root: zet::resolve_root(cli.root)?,
