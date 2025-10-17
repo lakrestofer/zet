@@ -3,83 +3,72 @@
 This file provides guidance to Claude Code (claude.ai/code) when
 working with code in this repository.
 
-Default to using Bun instead of Node.js.
+## Common Development Commands
 
-## Project Overview
+### Building and Running
 
-Zet is a CLI + LSP tool for interacting with markdown-based
-zettelkasten systems. It's written in Rust with some TypeScript
-components for development tooling.
+- `cargo build` - Build the project
+- `cargo run -- --help` - Show CLI help
+- `cargo run -- init [path]` - Initialize a new zet workspace
+- `cargo run -- parse <file>` - Parse a markdown file
 
-### Core Architecture
+### Testing
 
-- **Hybrid Language Setup**: Primary application in Rust, with
-  TypeScript/Bun for development tooling
-- **Database-Centric**: Uses SQLite as a cache/index over markdown
-  files, with the markdown files being the source of truth
-- **Parser Pipeline**: Built around pulldown-cmark for markdown
-  parsing with custom frontmatter handling
-- **CLI Interface**: Uses clap for command-line argument parsing
+- `cargo test` - Run all tests
 
-### Key Components
+### Code Quality
 
-- `src/main.rs` - Entry point, handles CLI command routing
-- `src/cli.rs` - CLI interface definition using clap
-- `src/parser.rs` - Markdown parsing with frontmatter extraction
-- `src/db.rs` - SQLite database operations and schema
-- `src/workspace.rs` - Workspace initialization and management
-- `src/collection.rs` - Document collection management
+- `cargo fmt` - Format code
+- `cargo clippy` - Run linter
+- `cargo check` - Quick syntax check
 
-## Development Commands
+### Documentation and Formatting
 
-### Rust Development
+- `dprint fmt` - Format markdown files (configured in
+  .helix/languages.toml)
 
-```bash
-# Build the project
-cargo build
-# Run with debug logging
-RUST_LOG=debug cargo run -- <command>
-# Run tests
-cargo test
-# Run tests with output
-cargo test -- --nocapture
-# Format code
-cargo fmt
-# Run clippy lints
-cargo clippy
-```
+## Architecture Overview
 
-### Testing Commands
+This is a Personal Knowledge Management (PKM) CLI tool written in Rust
+that parses markdown files and stores them in a SQLite database.
 
-```bash
-# Run snapshot tests (uses insta)
-cargo test
-# Review snapshot changes
-cargo insta review
-# Accept all snapshot changes
-cargo insta accept
-```
+### Core Modules
 
-## Architecture Notes
+- **parser/** - Markdown parsing with frontmatter support (TOML
+  format)
+  - `parser/ast_nodes.rs` - AST node definitions
+  - `parser.rs` - Main parsing logic using pulldown-cmark
+- **db.rs** - SQLite database operations with rusqlite
+- **workspace.rs** - Workspace initialization and management
+- **collection.rs** - Document collection management
+- **cli.rs** - Command-line interface using clap
 
-### Data Model Philosophy
+### Key Dependencies
 
-- Markdown files are the permanent data store
-- SQLite database is purely a cache/index that can be regenerated
-- No data in the database that cannot be reconstructed from markdown
-  files
-- Uses content hashes and modification timestamps for change detection
+- `clap` - CLI argument parsing with derive macros
+- `rusqlite` - SQLite database with time/uuid features
+- `pulldown-cmark` - Markdown parsing with SIMD acceleration
+- `gray_matter` - Frontmatter parsing
+- `insta` - Snapshot testing for parser verification
+- `color-eyre` - Enhanced error handling
 
-### File Processing Pipeline
+### Workspace Structure
 
-1. **Discovery**: Find markdown files using `ignore` crate (respects
-   .gitignore)
-2. **Change Detection**: Compare timestamps and content hashes
-3. **Parsing**: Extract frontmatter (TOML format) and markdown content
-4. **Database Storage**: Store extracted data for querying
+- `.zet/` - Hidden directory containing workspace data
+- `.zet/db.sqlite` - SQLite database for storing parsed documents
+- Workspace root is resolved by walking up directory tree to find
+  `.zet/`
 
-### Configuration
+### Testing Strategy
 
-- Configuration stored in `.zet/config.toml`
-- Database stored as `.zet/db.sqlite`
-- Frontmatter format: TOML (configurable)
+Uses snapshot testing with `insta` crate for parser verification. Test
+files are in `tests/input_files/` with corresponding snapshots in
+`tests/snapshots/`.
+
+## important-instruction-reminders
+
+Do what has been asked; nothing more, nothing less. NEVER create files
+unless they're absolutely necessary for achieving your goal. ALWAYS
+prefer editing an existing file to creating a new one. NEVER
+proactively create documentation files (*.md) or README files. Only
+create documentation files if explicitly requested by the User.
