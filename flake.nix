@@ -38,6 +38,10 @@
             inherit inputs pkgs;
             modules = [
               {
+
+                scripts.claude.exec = ''
+                  bunx @anthropic-ai/claude-code "$@";
+                '';
                 packages = with pkgs; [
                   bun
                   cargo-insta
