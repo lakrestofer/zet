@@ -1,4 +1,9 @@
 {
+  "spinnerTipsEnabled": false,
+  "enabledMcpjsonServers": [
+    "serena"
+  ],
+  "enableAllProjectMcpServers": true,
   "hooks": {
     "Notification": [
       {

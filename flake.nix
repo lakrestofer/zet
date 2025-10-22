@@ -4,6 +4,7 @@
     systems.url = "github:nix-systems/default";
     devenv.url = "github:cachix/devenv";
     devenv.inputs.nixpkgs.follows = "nixpkgs";
+    serena.url = "github:oraios/serena";
   };
 
   nixConfig = {
@@ -17,6 +18,7 @@
       nixpkgs,
       devenv,
       systems,
+      serena,
       ...
     }@inputs:
     let
@@ -42,10 +44,19 @@
                 scripts.claude.exec = ''
                   bunx @anthropic-ai/claude-code "$@";
                 '';
-                packages = with pkgs; [
-                  bun
-                  cargo-insta
-                ];
+                # scripts.serena.exec = ''
+                #   uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+                # '';
+                packages = (
+                  (with pkgs; [
+                    uv
+                    bun
+                    cargo-insta
+                  ])
+                  ++ ([
+                    serena.packages.${system}.serena
+                  ])
+                );
 
                 languages.rust = {
                   enable = true;
