@@ -6,7 +6,6 @@ use std::{
     ops::{Deref, DerefMut},
     path::Path,
 };
-use thiserror::Error;
 
 use super::*;
 

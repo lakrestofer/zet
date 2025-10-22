@@ -138,12 +138,12 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         Event::Text(str) => parse_text(str, range, iter),
         Event::Code(str) => parse_code(str, range, iter),
         Event::InlineMath(str) => Ok(InlineMath {
-            range: range,
+            range,
             text: str.into_string(),
         }
         .into()),
         Event::DisplayMath(str) => Ok(DisplayMath {
-            range: range,
+            range,
             text: str.into_string(),
         }
         .into()),
@@ -170,7 +170,7 @@ fn parse_tasklist_marker(
 }
 
 fn parse_rule(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
-    Ok(Node::HorizontalRule(HorizontalRule { range: range }))
+    Ok(Node::HorizontalRule(HorizontalRule { range }))
 }
 
 fn parse_hard_break(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -187,7 +187,7 @@ fn parse_footnote_ref(
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
     Ok(FootnoteReference {
-        range: range,
+        range,
         name: String::from(name.as_ref()),
     }
     .into())
@@ -210,11 +210,11 @@ fn parse_html(
 }
 
 fn parse_text(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
-    return Ok(Text {
+    Ok(Text {
         text: cow.to_string(),
         range,
     }
-    .into());
+    .into())
 }
 
 fn parse_display_math(
@@ -323,7 +323,7 @@ fn parse_image(
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> std::result::Result<Node, Error> {
-    while let Some((event, _)) = iter.next() {
+    for (event, _) in iter.by_ref() {
         match event {
             Event::End(TagEnd::Image) => break,
             _ => {} // ignore link children
@@ -694,7 +694,7 @@ fn parse_heading(
 
     Ok(Heading {
         id: id.map(|s| s.to_string()),
-        range: range,
+        range,
         level: level as u8,
         children,
         classes: classes.iter().map(|s| s.to_string()).collect(),

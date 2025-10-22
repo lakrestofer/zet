@@ -10,7 +10,7 @@ struct Cli {
 
 fn main() {
     let Cli { path } = Cli::parse();
-    let markdown_input = fs::read_to_string(&path).expect(&format!("Failed to read {:?}", &path));
+    let markdown_input = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {:?}", &path));
 
     let parser = DocumentParser::default();
     let parser = Parser::new_ext(&markdown_input, parser.options).into_offset_iter();

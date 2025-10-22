@@ -24,8 +24,8 @@ pub fn init(root: Option<PathBuf>, force: bool) -> Result<()> {
     }
     std::fs::create_dir_all(&work_dir)?;
 
-    if (db_dir.is_file()) {
-        _ = std::fs::remove_file(&db_dir)?;
+    if db_dir.is_file() {
+        std::fs::remove_file(&db_dir)?;;
     }
 
     // create and execute migrations on directory

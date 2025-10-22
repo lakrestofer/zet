@@ -313,7 +313,7 @@ macro_rules! generate_node {
     }
 
     impl Ranged for Node {
-        fn range<'a>(&'a self) -> &'a Range {
+        fn range(&self) -> &Range {
             match self {
                 $(Node::$node_name(node) => node.range()),*
             }
@@ -324,7 +324,7 @@ macro_rules! generate_node {
 
     $(
     impl Ranged for $node_name {
-        fn range<'a>(&'a self) -> &'a Range {
+        fn range(&self) -> &Range {
             &self.range
         }
 

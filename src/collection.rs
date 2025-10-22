@@ -16,7 +16,7 @@ use uuid::Uuid;
 /// - are there any documents that have been removed?
 pub fn collection_status(conf: &ZetConfig, db: &mut DB) -> Result<CollectionDocumentStatus> {
     // collect paths of document from root
-    let disk_paths: Vec<PathBuf> = workspace_paths(&conf)?;
+    let disk_paths: Vec<PathBuf> = workspace_paths(conf)?;
     let db_paths: Vec<(Uuid, PathBuf)> = db
         .prepare(minify_sql!(r#"select id,path from document"#))?
         .query_map([], |r| {
