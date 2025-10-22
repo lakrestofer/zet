@@ -44,6 +44,9 @@
                 scripts.claude.exec = ''
                   bunx @anthropic-ai/claude-code "$@";
                 '';
+                scripts.parse-md-file.exec = ''
+                  cargo r --bin print_events "$@"
+                '';
                 # scripts.serena.exec = ''
                 #   uvx --from git+https://github.com/oraios/serena serena start-mcp-server
                 # '';
@@ -52,6 +55,7 @@
                     uv
                     bun
                     cargo-insta
+                    just
                   ])
                   ++ ([
                     serena.packages.${system}.serena

@@ -1,0 +1,122 @@
+---
+source: tests/ast_check.rs
+expression: res
+input_file: tests/input_files/links.md
+---
+- ~
+- range:
+    start: 0
+    end: 115
+  children:
+    - Heading:
+        id: ~
+        classes: []
+        attributes: []
+        range:
+          start: 0
+          end: 8
+        level: 1
+        children:
+          - Text:
+              range:
+                start: 2
+                end: 7
+              text: Links
+    - List:
+        range:
+          start: 9
+          end: 115
+        start_index: ~
+        children:
+          - Item:
+              range:
+                start: 9
+                end: 34
+              children:
+                - Text:
+                    range:
+                      start: 11
+                      end: 23
+                    text: "inline link "
+                - InlineLink:
+                    range:
+                      start: 23
+                      end: 33
+                    children:
+                      - Text:
+                          range:
+                            start: 24
+                            end: 27
+                          text: foo
+                    url: bar
+                    title: ""
+              sub_lists: []
+          - Item:
+              range:
+                start: 34
+                end: 65
+              children:
+                - Text:
+                    range:
+                      start: 36
+                      end: 45
+                    text: "autolink "
+                - AutoLink:
+                    range:
+                      start: 45
+                      end: 64
+                    children:
+                      - Text:
+                          range:
+                            start: 46
+                            end: 63
+                          text: "https://some.site"
+              sub_lists: []
+          - Item:
+              range:
+                start: 65
+                end: 115
+              children:
+                - Text:
+                    range:
+                      start: 67
+                      end: 77
+                    text: "wiki link "
+                - WikiLink:
+                    range:
+                      start: 77
+                      end: 83
+                    children:
+                      - Text:
+                          range:
+                            start: 79
+                            end: 82
+                          text: foo
+              sub_lists:
+                - List:
+                    range:
+                      start: 87
+                      end: 115
+                    start_index: ~
+                    children:
+                      - Item:
+                          range:
+                            start: 87
+                            end: 115
+                          children:
+                            - Text:
+                                range:
+                                  start: 89
+                                  end: 104
+                                text: "with \"pothole\" "
+                            - WikiLink:
+                                range:
+                                  start: 104
+                                  end: 114
+                                children:
+                                  - Text:
+                                      range:
+                                        start: 110
+                                        end: 113
+                                      text: bar
+                          sub_lists: []

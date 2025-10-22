@@ -4,7 +4,6 @@ use crate::{
     parser::ast_nodes::{Heading, *},
     *,
 };
-use color_eyre::eyre::eyre;
 use gray_matter::{
     Matter,
     engine::{JSON, TOML, YAML},
@@ -84,7 +83,7 @@ impl FrontMatterParser {
 /// The document parser, parameterized over what happens when it encounters each event
 #[repr(transparent)]
 pub struct DocumentParser {
-    options: Options,
+    pub options: Options,
 }
 
 impl Default for DocumentParser {
@@ -138,8 +137,16 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         Event::End(_) => Ok(NotImplemented::new(range).into()),
         Event::Text(str) => parse_text(str, range, iter),
         Event::Code(str) => parse_code(str, range, iter),
-        Event::InlineMath(str) => parse_inline_math(str, range, iter),
-        Event::DisplayMath(str) => parse_display_math(str, range, iter),
+        Event::InlineMath(str) => Ok(InlineMath {
+            range: range,
+            text: str.into_string(),
+        }
+        .into()),
+        Event::DisplayMath(str) => Ok(DisplayMath {
+            range: range,
+            text: str.into_string(),
+        }
+        .into()),
         Event::Html(str) => parse_html(str, range, iter),
         Event::InlineHtml(str) => parse_inline_html(str, range, iter),
         Event::FootnoteReference(str) => parse_footnote_ref(str, range, iter),
@@ -211,11 +218,15 @@ fn parse_text(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_
 }
 
 fn parse_display_math(
-    cow: CowStr<'_>,
+    text: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    Ok(DisplayMath { range }.into())
+    Ok(DisplayMath {
+        range,
+        text: text.into_string(),
+    }
+    .into())
 }
 
 fn parse_inline_math(
@@ -223,7 +234,11 @@ fn parse_inline_math(
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    Ok(InlineMath { range }.into())
+    Ok(InlineMath {
+        range,
+        text: cow.into_string(),
+    }
+    .into())
 }
 
 fn parse_code(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -247,7 +262,7 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
             attrs,
         } => parse_heading(level, id, classes, attrs, range, iter),
         Tag::Paragraph => parse_paragraph(range, iter),
-        Tag::BlockQuote(kind) => parse_blockquote(kind, range, iter),
+        Tag::BlockQuote(_) => parse_blockquote(range, iter),
         Tag::CodeBlock(kind) => parse_code_block(kind, range, iter),
         Tag::HtmlBlock => parse_htmlblock(range, iter),
         Tag::List(n) => parse_list(n, range, iter),
@@ -466,9 +481,14 @@ fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
 
     while let Some((event, range)) = iter.next() {
         match event {
+            Event::Start(Tag::TableCell) => cells.push(parse_table_cell(range, iter)?),
             Event::End(TagEnd::TableHead) => break,
-            Event::Start(Tag::TableHead) => cells.push(parse_table_cell(range, iter)?),
-            _ => return Err(Error::ParseError("".into())),
+            e => {
+                return Err(Error::ParseError(format!(
+                    "Received unexpected event: {:?}",
+                    e
+                )));
+            }
         }
     }
 
@@ -620,7 +640,6 @@ fn parse_code_block(
 }
 
 fn parse_blockquote(
-    kind: Option<pulldown_cmark::BlockQuoteKind>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> std::result::Result<Node, Error> {

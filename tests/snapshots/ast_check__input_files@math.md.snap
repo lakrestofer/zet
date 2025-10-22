@@ -1,0 +1,59 @@
+---
+source: tests/ast_check.rs
+expression: res
+input_file: tests/input_files/math.md
+---
+- ~
+- range:
+    start: 0
+    end: 96
+  children:
+    - Heading:
+        id: ~
+        classes: []
+        attributes: []
+        range:
+          start: 0
+          end: 7
+        level: 1
+        children:
+          - Text:
+              range:
+                start: 2
+                end: 6
+              text: math
+    - Paragraph:
+        range:
+          start: 8
+          end: 47
+        children:
+          - Text:
+              range:
+                start: 8
+                end: 33
+              text: "here is some inline math "
+          - InlineMath:
+              range:
+                start: 33
+                end: 46
+              text: "\\frac{1}{2}"
+    - Paragraph:
+        range:
+          start: 48
+          end: 78
+        children:
+          - Text:
+              range:
+                start: 48
+                end: 77
+              text: and here is some display math
+    - Paragraph:
+        range:
+          start: 79
+          end: 96
+        children:
+          - DisplayMath:
+              range:
+                start: 79
+                end: 96
+              text: "\n\\frac{1}{2}\n"

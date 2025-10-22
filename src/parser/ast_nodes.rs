@@ -60,6 +60,12 @@ macro_rules! make_node_enum_impls {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum BlockQuoteKind {
+    Inline,
+    Fenced(String),
+}
+
 make_node_struct_impls! {
     pub struct SourceFile {
         pub range: Range,
@@ -110,10 +116,12 @@ make_node_struct_impls! {
 
     pub struct DisplayMath {
         pub range: Range,
+        pub text: String,
     }
 
     pub struct InlineMath {
         pub range: Range,
+        pub text: String,
     }
 
     pub struct FootnoteReference {

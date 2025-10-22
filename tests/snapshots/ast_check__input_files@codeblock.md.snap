@@ -1,0 +1,61 @@
+---
+source: tests/ast_check.rs
+expression: res
+input_file: tests/input_files/codeblock.md
+---
+- ~
+- range:
+    start: 0
+    end: 179
+  children:
+    - Heading:
+        id: ~
+        classes: []
+        attributes: []
+        range:
+          start: 0
+          end: 12
+        level: 1
+        children:
+          - Text:
+              range:
+                start: 2
+                end: 11
+              text: codeblock
+    - Paragraph:
+        range:
+          start: 13
+          end: 62
+        children:
+          - Text:
+              range:
+                start: 13
+                end: 44
+              text: "a codeblock is anything within "
+          - Code:
+              range:
+                start: 44
+                end: 61
+              code: some backticks!
+    - Paragraph:
+        range:
+          start: 63
+          end: 114
+        children:
+          - Text:
+              range:
+                start: 63
+                end: 113
+              text: a more special kind of codeblock is the fenced one
+    - CodeBlock:
+        range:
+          start: 115
+          end: 179
+        tag: python
+        is_fenced: true
+        children:
+          - Text:
+              range:
+                start: 125
+                end: 176
+              text: "x = \"it is usually used to hold code of some kind\"\n"
