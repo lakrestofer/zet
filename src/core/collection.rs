@@ -1,22 +1,26 @@
-use super::*;
-use crate::db::DB;
-use crate::db::PathBufContainer;
+use crate::core::db::DB;
+use crate::core::db::PathBufContainer;
 use ignore::{DirEntry, WalkBuilder};
 use sql_minifier::macros::minify_sql;
+use std::collections::HashSet;
+use std::path::Path;
 use std::path::PathBuf;
+use time::OffsetDateTime;
 use twox_hash::XxHash3_64;
 use types::DocHashPartition;
 pub use types::DocTimestampPartition;
 use types::{CollectionDocumentStatus, DocPathPartition};
 use uuid::Uuid;
 
+use crate::preamble::*;
+
 /// given a directory of markdown files, determine the following:
 /// - are there any new documents?
 /// - are there any documents that we need to reparse?
 /// - are there any documents that have been removed?
-pub fn collection_status(conf: &ZetConfig, db: &mut DB) -> Result<CollectionDocumentStatus> {
+pub fn collection_status(root: &Path, db: &mut DB) -> Result<CollectionDocumentStatus> {
     // collect paths of document from root
-    let disk_paths: Vec<PathBuf> = workspace_paths(conf)?;
+    let disk_paths: Vec<PathBuf> = workspace_paths(root)?;
     let db_paths: Vec<(Uuid, PathBuf)> = db
         .prepare(minify_sql!(r#"select id,path from document"#))?
         .query_map([], |r| {
@@ -82,8 +86,8 @@ fn is_markdown_file(e: &DirEntry) -> bool {
     is_filetype(e, "md")
 }
 
-fn workspace_paths(conf: &ZetConfig) -> Result<Vec<PathBuf>> {
-    let files: Vec<PathBuf> = WalkBuilder::new(&conf.root)
+fn workspace_paths(root: &Path) -> Result<Vec<PathBuf>> {
+    let files: Vec<PathBuf> = WalkBuilder::new(root)
         .build()
         .filter_map(|e| e.ok())
         .filter(is_markdown_file)
@@ -131,7 +135,7 @@ fn document_path_partition(
 /// return those that have changed and those that have not.
 fn document_timestamp_partition(
     paths: Vec<(Uuid, PathBuf, (OffsetDateTime, OffsetDateTime))>,
-) -> crate::Result<DocTimestampPartition> {
+) -> Result<DocTimestampPartition> {
     let mut partition = DocTimestampPartition::default();
 
     for (id, path, (current_modified, previous_modified)) in paths {
@@ -146,11 +150,11 @@ fn document_timestamp_partition(
 }
 fn document_hash_partition(
     paths: Vec<(Uuid, PathBuf, OffsetDateTime, (u64, u64))>,
-) -> crate::Result<DocHashPartition> {
+) -> Result<DocHashPartition> {
     let mut partition = DocHashPartition::default();
 
-    for (id, path, modified, (current_hash, prevous_hash)) in paths {
-        if current_hash != prevous_hash {
+    for (id, path, modified, (current_hash, previous_hash)) in paths {
+        if current_hash != previous_hash {
             partition.modified.push((id, path, modified, current_hash));
         } else {
             partition.unchanged.push((id, path, modified, current_hash));
@@ -173,6 +177,7 @@ pub mod types {
     }
 
     impl CollectionDocumentStatus {
+        #[inline]
         pub fn new(
             new: Vec<PathBuf>,
             updated: Vec<(Uuid, PathBuf, OffsetDateTime, u64)>,

@@ -112,6 +112,7 @@ make_node_struct_impls! {
 
     pub struct Html {
         pub range: Range,
+        pub text: String
     }
 
     pub struct DisplayMath {

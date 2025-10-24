@@ -1,9 +1,8 @@
 pub mod ast_nodes;
 
-use crate::{
-    parser::ast_nodes::{Heading, *},
-    *,
-};
+use crate::preamble::*;
+
+use crate::core::parser::ast_nodes::{Heading, *};
 use gray_matter::{
     Matter,
     engine::{JSON, TOML, YAML},
@@ -147,66 +146,30 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
             text: str.into_string(),
         }
         .into()),
-        Event::Html(str) => parse_html(str, range, iter),
-        Event::InlineHtml(str) => parse_inline_html(str, range, iter),
-        Event::FootnoteReference(str) => parse_footnote_ref(str, range, iter),
-        Event::SoftBreak => parse_soft_break(range, iter),
-        Event::HardBreak => parse_hard_break(range, iter),
-        Event::Rule => parse_rule(range, iter),
-        Event::TaskListMarker(checked) => parse_tasklist_marker(checked, range, iter),
+        Event::Html(str) => Ok(Html {
+            range: range,
+            text: str.into_string(),
+        }
+        .into()),
+        Event::InlineHtml(str) => Ok(Html {
+            range: range,
+            text: str.into_string(),
+        }
+        .into()),
+        Event::FootnoteReference(str) => Ok(FootnoteReference {
+            range: range,
+            name: String::from(str.as_ref()),
+        }
+        .into()),
+        Event::SoftBreak => Ok(SoftBreak { range: range }.into()),
+        Event::HardBreak => Ok(HardBreak { range: range }.into()),
+        Event::Rule => Ok(Node::HorizontalRule(HorizontalRule { range: range })),
+        Event::TaskListMarker(checked) => Ok(TaskListMarker {
+            range: range,
+            is_checked: checked,
+        }
+        .into()),
     }
-}
-
-fn parse_tasklist_marker(
-    checked: bool,
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    Ok(TaskListMarker {
-        range,
-        is_checked: checked,
-    }
-    .into())
-}
-
-fn parse_rule(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
-    Ok(Node::HorizontalRule(HorizontalRule { range }))
-}
-
-fn parse_hard_break(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
-    Ok(HardBreak { range }.into())
-}
-
-fn parse_soft_break(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
-    Ok(SoftBreak { range }.into())
-}
-
-fn parse_footnote_ref(
-    name: CowStr<'_>,
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    Ok(FootnoteReference {
-        range,
-        name: String::from(name.as_ref()),
-    }
-    .into())
-}
-
-fn parse_inline_html(
-    cow_str: CowStr<'_>,
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    Ok(Html { range }.into())
-}
-
-fn parse_html(
-    cow_str: CowStr<'_>,
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    Ok(Html { range }.into())
 }
 
 fn parse_text(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -445,7 +408,7 @@ fn parse_table(
         parse_table_head(range, iter)?
     } else {
         return Err(Error::ParseError(
-            "header expected but recieved none".into(),
+            "header expected but received none".into(),
         ));
     };
 
@@ -610,7 +573,7 @@ fn parse_htmlblock(
         }
     }
 
-    Ok(Html::new(range).into())
+    Ok(Html::new(range, "TODO".into()).into())
 }
 
 fn parse_code_block(
