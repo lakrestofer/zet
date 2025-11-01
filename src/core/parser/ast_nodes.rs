@@ -67,7 +67,7 @@ pub enum BlockQuoteKind {
 }
 
 make_node_struct_impls! {
-    pub struct SourceFile {
+    pub struct Document {
         pub range: Range,
         pub children: Vec<Node>,
     }
@@ -372,7 +372,7 @@ impl Node {
 }
 
 generate_node![
-    SourceFile,
+    Document,
     NotImplemented,
     Heading,
     Paragraph,

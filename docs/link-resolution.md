@@ -1,7 +1,7 @@
 # Link Resolution
 
 This document details how zet resolves different types of links to
-target nodes.
+target files.
 
 ## Link Types
 
@@ -30,17 +30,17 @@ Links that don't specify a file extension use **ID-based resolution**:
 
 **Resolution Process:**
 
-1. **Exact Match**: Look for a node with exactly matching ID
-2. **Suffix Match**: If no exact match, find nodes where the ID ends
+1. **Exact Match**: Look for a file with exactly matching ID
+2. **Suffix Match**: If no exact match, find files where the ID ends
    with the target
 3. **Multiple Matches**: Log warning, pick deterministically
    (implementation-defined)
 
 **Suffix Matching Examples:**
 
-- `[[todo]]` can match node with ID `work/todo` (from file
+- `[[todo]]` can match file with ID `work/todo` (from file
   `work/todo.md`)
-- `[[todo]]` can match node with ID `personal/todo` (from file
+- `[[todo]]` can match file with ID `personal/todo` (from file
   `personal/todo.md`)
 - If both exist, zet warns about ambiguity and chooses one
   consistently
@@ -62,7 +62,7 @@ Links that include a file extension use **path-based resolution**:
 2. **No Suffix Matching**: Path must be precisely correct
 3. **Validation**: File must exist at the specified relative location
 
-## Node ID System
+## File ID System
 
 ### Default ID Generation
 
@@ -151,7 +151,7 @@ id: important-doc
 
 ### Internal Links
 
-Links that successfully resolve to a node within the collection:
+Links that successfully resolve to a file within the collection:
 
 - Tracked in the link graph
 - Available for graph-based queries
@@ -159,7 +159,7 @@ Links that successfully resolve to a node within the collection:
 
 ### External Links
 
-Links that don't resolve to internal nodes:
+Links that don't resolve to internal files:
 
 - URLs (e.g., `https://example.com`)
 - Non-existent files
@@ -168,7 +168,7 @@ Links that don't resolve to internal nodes:
 
 ## Ambiguity Handling
 
-When multiple nodes could match a link target:
+When multiple files could match a link target:
 
 1. **Log Warning**: Inform user about the ambiguous link
 2. **Deterministic Choice**: Pick one match consistently (e.g.,

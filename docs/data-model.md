@@ -5,12 +5,11 @@ data.
 
 ## Core Entities
 
-### Nodes
+### Markdown files
 
-The fundamental unit of the knowledge graph, currently corresponding
-to markdown files.
+The fundamental unit of the knowledge graph.
 
-**Node Properties:**
+**Properties:**
 
 - **ID**: Unique identifier for linking (slugified path or frontmatter
   override)
@@ -18,7 +17,7 @@ to markdown files.
 - **Title**: Display name (from H1 heading or frontmatter)
 - **Aliases**: Alternative identifiers from frontmatter
 
-**Node Identification:**
+**File Identification:**
 
 1. **Default ID**: Slugified version of file path without extension
    - `notes/todo.md` → ID: `notes/todo`
@@ -28,7 +27,7 @@ to markdown files.
 
 ### Links
 
-Relationships between nodes, extracted from markdown link syntax.
+Relationships between files, extracted from markdown link syntax.
 
 **Link Types:**
 
@@ -80,8 +79,8 @@ extract content from source files:
 
 Links without file extensions resolve using ID matching:
 
-1. **Exact Match**: Look for node with matching ID
-2. **Suffix Match**: If no exact match, find nodes where ID ends with
+1. **Exact Match**: Look for file with matching ID
+2. **Suffix Match**: If no exact match, find files where ID ends with
    the target
 3. **Ambiguity Handling**: Log warnings for multiple matches, pick
    deterministically
@@ -89,18 +88,18 @@ Links without file extensions resolve using ID matching:
 ### Path-Based Resolution
 
 Links with file extensions require exact relative path matching from
-the source node to target.
+the source file to target.
 
 ### Internal vs External Links
 
-- **Internal**: Target resolves to a node in the collection
+- **Internal**: Target resolves to a file in the collection
 - **External**: Target points outside the collection
 
 ## Frontmatter Integration
 
 ### Standard Fields
 
-- `id`: Override default node ID
+- `id`: Override default file ID
 - `title`: Override H1-derived title
 - `aliases`: Array of alternative identifiers
 

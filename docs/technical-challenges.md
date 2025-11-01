@@ -30,7 +30,7 @@ considered during the development of zet.
 
 ### Challenge: Ambiguous Link Resolution
 
-- **Problem**: Multiple nodes may match the same wiki link target
+- **Problem**: Multiple files may match the same wiki link target
   (e.g., `[[todo]]` matching both `work/todo.md` and
   `personal/todo.md`)
 - **Considerations**:
@@ -58,7 +58,7 @@ considered during the development of zet.
   - Re-parsing vs incremental range updates
   - Maintaining range accuracy for content extraction
 
-## Node Identification System
+## File Identification System
 
 ### Challenge: ID vs Path-Based Linking
 
@@ -71,10 +71,10 @@ considered during the development of zet.
 
 ### Challenge: Alias Resolution
 
-- **Problem**: Multiple aliases pointing to the same node complicates
+- **Problem**: Multiple aliases pointing to the same file complicates
   link resolution
 - **Considerations**:
-  - Preventing alias conflicts across nodes
+  - Preventing alias conflicts across files
   - Performance impact of checking multiple aliases during resolution
   - User feedback when aliases create ambiguity
 

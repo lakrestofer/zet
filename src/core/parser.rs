@@ -30,7 +30,7 @@ pub fn parse(
     frontmatter_parser: FrontMatterParser,
     document_parser: DocumentParser,
     document: String,
-) -> Result<(Option<serde_json::Value>, SourceFile)> {
+) -> Result<(Option<serde_json::Value>, Document)> {
     let (frontmatter, content) = frontmatter_parser.parse(document);
 
     let events = document_parser.parse(content)?;
@@ -106,7 +106,7 @@ impl DocumentParser {
         Self::default()
     }
 
-    pub fn parse(&self, document: String) -> Result<SourceFile> {
+    pub fn parse(&self, document: String) -> Result<Document> {
         let parser = Parser::new_ext(&document, self.options);
 
         let mut parser_with_offset = ParserIterator {
@@ -120,7 +120,7 @@ impl DocumentParser {
             nodes.push(parse_event(event, range, &mut parser_with_offset)?);
         }
 
-        Ok(SourceFile {
+        Ok(Document {
             children: nodes,
             range: Range {
                 start: 0,

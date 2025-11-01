@@ -11,33 +11,32 @@ A directory containing markdown files (with nested folders) that
 represents a user's knowledge base. Collections are the top-level
 organizational unit and define the scope of a workspace.
 
-### Node
+### File
 
-The basic unit of the knowledge graph. Currently, a node corresponds
-to a single markdown file. Nodes are the entities that can be linked
-to and queried.
+The basic unit of the knowledge graph. Any markdown file that exists
+within the root directory.
 
-### Node Path
+### File Path
 
-The file path of a node relative to the collection root, including the
+The file path of a file relative to the collection root, including the
 file extension.
 
 - Example: `notes/todo.md`, `projects/web-app/architecture.md`
 
-### Node Title
+### File Title
 
-The human-readable name of a node, determined by:
+The human-readable name of a file, determined by:
 
 1. The `title` field in frontmatter (if present)
 2. The content of the first H1 heading (if present)
 3. Used primarily for display purposes in interactive interfaces
 
-### Node ID
+### File ID
 
-The unique identifier used for linking to nodes, determined by:
+The unique identifier used for linking to files, determined by:
 
 1. The `id` field in frontmatter (if present)
-2. The slugified version of the node path without extension (default)
+2. The slugified version of the file path without extension (default)
 
 - Example: `notes/todo.md` → ID: `notes/todo`
 - Slugification rules: `.toLowerCase()` and replace whitespace with
@@ -45,11 +44,11 @@ The unique identifier used for linking to nodes, determined by:
 
 ### Aliases
 
-Additional identifiers for a node defined in frontmatter that resolve
-to the same node. Allows for shorter or alternative references in
+Additional identifiers for a file defined in frontmatter that resolve
+to the same file. Allows for shorter or alternative references in
 links.
 
-- Example: A node with ID `research/machine-learning/neural-networks`
+- Example: A file with ID `research/machine-learning/neural-networks`
   might have alias `nn`
 
 ## Link Types
@@ -58,8 +57,8 @@ links.
 
 Links using double bracket syntax: `[[target]]`
 
-- Target resolution uses suffix matching against node IDs
-- Example: `[[todo]]` matches node with ID `notes/todo`
+- Target resolution uses suffix matching against file IDs
+- Example: `[[todo]]` matches file with ID `notes/todo`
 
 ### Markdown Links
 
@@ -70,7 +69,7 @@ Standard markdown links: `[text](target.md)`
 
 ### Internal vs External Links
 
-- **Internal Link**: Target resolves to another node in the collection
+- **Internal Link**: Target resolves to another file in the collection
 - **External Link**: Target points outside the collection (URLs,
   non-existent files, etc.)
 
@@ -90,7 +89,7 @@ content without re-parsing.
 
 ### Cache
 
-The SQLite database that stores parsed AST, node metadata, and link
+The SQLite database that stores parsed AST, file metadata, and link
 relationships. The source of truth remains the markdown files
 themselves.
 
