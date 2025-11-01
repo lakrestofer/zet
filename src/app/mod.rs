@@ -8,6 +8,7 @@ pub mod preamble {
     pub use crate::app::error_handling::*;
     pub use std::path::PathBuf;
 }
+
 pub mod commands {
     use clap::Subcommand;
     use std::path::PathBuf;
