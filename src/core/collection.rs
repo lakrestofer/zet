@@ -42,10 +42,10 @@ pub fn collection_status(
     // and which that we need to investigate further.
     let mut path_set = HashSet::new();
     let mut db_path_set = HashSet::new();
-    path_set.extend(&disk_paths);
+    path_set.extend(disk_paths.clone());
     db_path_set.extend(db_documents.iter().map(|d| &d.path.0));
 
-    let mut new: Vec<DocumentPath> = disk_paths
+    let new: Vec<DocumentPath> = disk_paths
         .into_iter()
         .filter(|p| !db_path_set.contains(p))
         .map(|p| DocumentPath(p))
@@ -81,7 +81,7 @@ pub fn collection_status(
                 &CreatedTimestamp,
             )> {
                 let path = db_documents[i].path.to_owned();
-                let metadata = std::fs::metadata(path.0)?;
+                let metadata = std::fs::metadata(&path.0)?;
 
                 let current_modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
                 let previous_modified: &ModifiedTimestamp = &db_documents[i].modified;
