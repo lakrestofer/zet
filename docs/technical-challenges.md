@@ -1,91 +1,62 @@
 # Technical Challenges
 
 This document outlines the key technical challenges that need to be
-considered during the development of zet.
+considered during the development of zet. They are listed in the order
+that they have come up during development. If they had a solution that
+is included as well.
 
-## AST Storage and Querying
+## Resolve ID
 
-### Challenge: AST Granularity vs Performance
+How to generate an ID from the markdown files themselves? Should be no
+requirement to have an uuid in the filename, or some enforced
+convention. Should the user be able to define their own id?
 
-- **Problem**: Storing every pulldown-cmark AST node provides maximum
-  query flexibility but may impact performance and storage size
-- **Considerations**:
-  - Balance between query capabilities and database size
-  - Efficient queries for structural patterns (e.g., "documents with
-    headings more than 4 levels deep")
-  - Memory usage when loading large document ASTs
+### Solution
 
-### Challenge: SQL Query Interface for AST
+Use a slugified version of the document relative path as the id. When
+resolving the target of a link we use suffix matching.
 
-- **Problem**: Exposing AST structure through SQL requires careful
-  schema design
-- **Considerations**:
-  - How to represent hierarchical AST relationships in relational
-    tables
-  - Efficient queries for extracting elements (e.g., "all checkmarks
-    grouped by document")
-  - Query performance for common structural queries
+The user should not be able to define their own id (through an id
+field in the frontmatter), since this would meant hat link resolution
+could not longer be a simple suffix match on the sluggified relative
+path of the target.
 
-## Link Resolution and Graph Management
+## Link resolution
 
-### Challenge: Ambiguous Link Resolution
+how do we match from markdown link syntax to some other file in the
+workspace.
 
-- **Problem**: Multiple files may match the same wiki link target
-  (e.g., `[[todo]]` matching both `work/todo.md` and
-  `personal/todo.md`)
-- **Considerations**:
-  - Deterministic resolution algorithms for suffix matching
-  - Warning users about ambiguous links
-  - Performance of suffix matching across collections
+Ordinary relative path syntax is common, but can become too long if
+the link is in the middle of a paragraph.
+
+Want the ability for a shorter target to resolve to a document that
+might be identified by a longer path or id.
+
+Current thoughts on solution in [[./link-resolution.md]]
+
+## Ambiguous Link Resolution
+
+Multiple files may match the same wiki link target (e.g., `[[todo]]`
+matching both `work/todo.md` and `personal/todo.md`) because of the
+link resolution mechanism.
+
+I think in these cases we should just resolve the target to one of the
+files (using some tiebreaker), and somehow log a warning to the user.
 
 ## Cache Invalidation Strategy
 
-### Challenge: Three-Tier Change Detection
+We need to detect when a file has changed, such that we can reindex
+its contents.
 
-- **Problem**: Efficiently detecting when files need re-parsing using
-  the path/timestamp/hash approach
-- **Considerations**:
-  - Performance of hash computation for large files
-  - Handling timestamp changes that don't reflect content changes
-  - Balancing detection accuracy with computational cost
+We solve this by making comparison on three levels.
 
-### Challenge: AST Range Invalidation
+- we compare the the currently seen files with the ones we have seen
+  before.
+  - from this we know which are new, deleted
+  - the rest we need to change for modifications
+- then we compare file timestamps with the ones stored in the db
+  - the ones that differ needs to be reindexed.
+- then we compare the hashes
+  - since it is cheap to hash the contents, we also compare the hash.
 
-- **Problem**: When files change, stored character-based ranges become
-  invalid
-- **Considerations**:
-  - Detecting which ranges are affected by file changes
-  - Re-parsing vs incremental range updates
-  - Maintaining range accuracy for content extraction
-
-## File Identification System
-
-### Challenge: ID vs Path-Based Linking
-
-- **Problem**: Supporting both automatic path-based IDs and
-  frontmatter ID overrides
-- **Considerations**:
-  - Handling conflicts between slugified paths and custom IDs
-  - Maintaining link integrity when IDs change
-  - Migration behavior when files don't follow ID conventions
-
-### Challenge: Alias Resolution
-
-- **Problem**: Multiple aliases pointing to the same file complicates
-  link resolution
-- **Considerations**:
-  - Preventing alias conflicts across files
-  - Performance impact of checking multiple aliases during resolution
-  - User feedback when aliases create ambiguity
-
-## Full-Text + Structural Query Integration
-
-### Challenge: Combining Query Types
-
-- **Problem**: Users want to combine full-text search with structural
-  queries (e.g., "find 'machine learning' in documents with TODO
-  items")
-- **Considerations**:
-  - Query execution order optimization
-  - How to efficiently intersect results from different search types
-  - Unclear how these two systems will interact effectively
+More can be seen in [[./cache-strategy.md]]

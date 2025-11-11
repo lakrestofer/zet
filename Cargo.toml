@@ -28,6 +28,13 @@ pulldown-cmark = { version = "0.13.0", features = ["serde", "simd"] }
 gray_matter = "0.2.8"
 normalize-path = "0.2.1"
 resolve-path = "0.1.0"
+sea-query = { version = "1.0.0-rc.1", features = [
+  "derive",
+  "backend-sqlite",
+  "with-time",
+  "with-json",
+] }
+deunicode = "1.6.2"
 
 [dev-dependencies]
 insta = { version = "1.43.2", features = ["glob", "yaml"] }

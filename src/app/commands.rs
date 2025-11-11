@@ -1,0 +1,21 @@
+use clap::Subcommand;
+use std::path::PathBuf;
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    Parse {
+        path: PathBuf,
+    },
+    /// Reindex the collection. Parsing any new/updated files and updating the cache.
+    Index,
+    /// A raw sql query on the db
+    RawQuery {
+        query: String,
+    },
+    Init {
+        root: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
+    Lsp,
+    Format,
+}

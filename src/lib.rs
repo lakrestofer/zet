@@ -20,11 +20,11 @@ pub mod error {
     #[derive(Error, Debug)]
     pub enum Error {
         #[error("rusqlite error: {0}")]
-        RusqliteError(rusqlite::Error),
+        RusqliteError(#[from] rusqlite::Error),
         #[error("migration error: {0}")]
-        MigrationError(rusqlite_migration::Error),
+        MigrationError(#[from] rusqlite_migration::Error),
         #[error("io error: {0}")]
-        IOError(std::io::Error),
+        IOError(#[from] std::io::Error),
         #[error("parse error: {0}")]
         ParseError(String),
         #[error("CollectionNotFoundError: could not find .zet folder")]
@@ -33,22 +33,6 @@ pub mod error {
         NoParentError,
         #[error("InitError")]
         InitError,
-    }
-
-    impl From<std::io::Error> for Error {
-        fn from(value: std::io::Error) -> Self {
-            Self::IOError(value)
-        }
-    }
-    impl From<rusqlite::Error> for Error {
-        fn from(value: rusqlite::Error) -> Self {
-            Self::RusqliteError(value)
-        }
-    }
-    impl From<rusqlite_migration::Error> for Error {
-        fn from(value: rusqlite_migration::Error) -> Self {
-            Self::MigrationError(value)
-        }
     }
 }
 
