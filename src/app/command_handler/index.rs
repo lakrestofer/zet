@@ -1,3 +1,4 @@
+use color_eyre::eyre::eyre;
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
 use twox_hash::XxHash3_64;
@@ -5,10 +6,10 @@ use zet::{
     config::Config,
     core::{
         db::DB,
-        parser::FrontMatterParser,
+        parser::{FrontMatterParser, ast_nodes},
         types::{
-            CreatedTimestamp, Document, DocumentPath, InternalLink, JsonData, ModifiedTimestamp,
-            Node,
+            CreatedTimestamp, Document, DocumentId, DocumentPath, InternalLink, JsonData,
+            ModifiedTimestamp, Node,
         },
     },
 };
@@ -50,14 +51,18 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
 }
 
 fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<DocumentData>> {
-    let document_data = Vec::new();
+    let mut document_data = Vec::new();
 
     for DocumentPath(path) in new {
+        let id = DocumentId(zet::core::slug::slugify(
+            path.to_str().ok_or(eyre!("path is not valid utf8"))?,
+        ));
+
         let metadata = std::fs::metadata(&path)?;
         let modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
         let created = CreatedTimestamp(metadata.created().map(From::from)?);
 
-        let content = std::fs::read_to_string(path)?;
+        let content = std::fs::read_to_string(&path)?;
         let hash = XxHash3_64::oneshot(content.as_bytes());
 
         let (frontmatter, nodes) = zet::core::parser::parse(
@@ -67,7 +72,17 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
         )?;
         let frontmatter = frontmatter.unwrap_or(JsonData(json!("{}")));
 
-        // TODO continue here
+        document_data.push(DocumentData {
+            document: Document {
+                id: id,
+                path: DocumentPath(path),
+                hash,
+                modified,
+                created,
+                data: frontmatter,
+            },
+            content: nodes.children,
+        })
     }
 
     Ok(document_data)
@@ -87,8 +102,7 @@ fn process_existing_documents(
 
 struct DocumentData {
     document: Document,
-    links: InternalLink,
-    content: Vec<Node>,
+    content: Vec<ast_nodes::Node>,
 }
 
 fn delete_documents(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
