@@ -1,5 +1,7 @@
 use crate::core::db::DB;
 use crate::core::db::DbCrud;
+use crate::core::hasher;
+use crate::core::hasher::hash;
 use crate::core::paths::workspace_paths;
 use crate::core::types::CreatedTimestamp;
 use crate::core::types::Document;
@@ -11,7 +13,6 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use time::OffsetDateTime;
-use twox_hash::XxHash3_64;
 
 use crate::preamble::*;
 
@@ -29,7 +30,7 @@ pub fn collection_status(
         DocumentPath,
         ModifiedTimestamp,
         CreatedTimestamp,
-        u64,
+        u32,
     )>,
     Vec<DocumentId>,
 ) {
@@ -68,7 +69,7 @@ pub fn collection_status(
         DocumentPath,
         ModifiedTimestamp,
         CreatedTimestamp,
-        u64,
+        u32,
     )> = exists
         .into_iter()
         .flat_map(
@@ -112,17 +113,17 @@ pub fn collection_status(
                 DocumentPath,
                 ModifiedTimestamp,
                 CreatedTimestamp,
-                u64,
-                &u64,
+                u32,
+                &u32,
             )> {
                 let content = std::fs::read_to_string(&path.0)?;
-                let current = XxHash3_64::oneshot(content.as_bytes());
+                let current = crate::core::hasher::hash(&content);
                 let previous = &db_documents[index].hash;
                 Ok((index, path, modified, created, current, previous))
             },
         )
-        .filter(|(index, path, modified, created, current, previous)| *current != **previous)
-        .map(|(index, path, modified, created, current, previous)| {
+        .filter(|(_, _, _, _, current, previous)| *current != **previous)
+        .map(|(index, path, modified, created, current, _)| {
             let id = db_documents[index].id.clone();
             (id, path, modified, created, current)
         })

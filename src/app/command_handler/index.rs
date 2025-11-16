@@ -1,11 +1,11 @@
 use color_eyre::eyre::eyre;
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
-use twox_hash::XxHash3_64;
 use zet::{
     config::Config,
     core::{
-        db::DB,
+        db::{DB, DbCrud},
+        hasher::hash,
         parser::{FrontMatterParser, ast_nodes},
         types::{
             CreatedTimestamp, Document, DocumentId, DocumentPath, InternalLink, JsonData,
@@ -23,7 +23,13 @@ pub fn handle_command(config: Config) -> Result<()> {
 
     // we figure out which documents we need to process,reprocess and delete
     let (new, updated, removed) = zet::core::collection::collection_status(root, &mut db);
-    log::debug!("{:?}", new);
+
+    log::info!(
+        "collection status since last index: n_new={}, n_updated={}, n_removed={}",
+        new.len(),
+        updated.len(),
+        removed.len()
+    );
 
     let removed_ids = removed.iter().map(|r| r.0.as_str()).collect();
     let updated_ids = updated
@@ -47,6 +53,16 @@ pub fn handle_command(config: Config) -> Result<()> {
 }
 
 fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
+    let mut db_nodes = Vec::with_capacity(documents.len());
+    let mut db_documents = Vec::with_capacity(documents.len());
+
+    for doc in documents {
+        db_nodes.push(doc.content);
+        db_documents.push(doc.document);
+    }
+
+    Document::upsert(db, db_documents)?;
+
     Ok(())
 }
 
@@ -63,7 +79,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
         let created = CreatedTimestamp(metadata.created().map(From::from)?);
 
         let content = std::fs::read_to_string(&path)?;
-        let hash = XxHash3_64::oneshot(content.as_bytes());
+        let hash = zet::core::hasher::hash(&content);
 
         let (frontmatter, nodes) = zet::core::parser::parse(
             FrontMatterParser::new(config.front_matter_format),
@@ -94,10 +110,35 @@ fn process_existing_documents(
         DocumentPath,
         zet::core::types::ModifiedTimestamp,
         zet::core::types::CreatedTimestamp,
-        u64,
+        u32,
     )>,
 ) -> Result<Vec<DocumentData>> {
-    todo!();
+    let mut document_data = Vec::new();
+
+    for (id, path, modified, created, hash) in updated {
+        let content = std::fs::read_to_string(&path.0)?;
+
+        let (frontmatter, nodes) = zet::core::parser::parse(
+            FrontMatterParser::new(config.front_matter_format),
+            zet::core::parser::DocumentParser::new(),
+            content,
+        )?;
+        let frontmatter = frontmatter.unwrap_or(JsonData(json!("{}")));
+
+        document_data.push(DocumentData {
+            document: Document {
+                id: id,
+                path: path,
+                hash: hash,
+                modified: modified,
+                created: created,
+                data: frontmatter,
+            },
+            content: nodes.children,
+        })
+    }
+
+    Ok(document_data)
 }
 
 struct DocumentData {

@@ -18,8 +18,10 @@ pub fn handle_command(root: Option<PathBuf>, force: bool) -> Result<()> {
             log::error!("{:?} already exists! specify --force to reinit", work_dir);
             return Err(eyre!("could not initialize {:?}", work_dir));
         }
+        log::warn!("removing directory {:?} (and contents)", work_dir);
         std::fs::remove_dir_all(&work_dir)?;
     }
+    log::info!("creating directory {:?} (and contents)", work_dir);
     std::fs::create_dir_all(&work_dir)?;
 
     if db_dir.is_file() {

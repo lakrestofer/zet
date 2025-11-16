@@ -64,7 +64,7 @@ pub struct CreatedTimestamp(pub OffsetDateTime);
 pub struct Document {
     pub id: DocumentId,
     pub path: DocumentPath,
-    pub hash: u64,
+    pub hash: u32,
     pub modified: ModifiedTimestamp,
     pub created: CreatedTimestamp,
     pub data: JsonData,
@@ -99,7 +99,7 @@ impl Document {
     pub fn new(
         id: DocumentId,
         path: DocumentPath,
-        hash: u64,
+        hash: u32,
         modified: ModifiedTimestamp,
         created: CreatedTimestamp,
         data: JsonData,
@@ -293,7 +293,7 @@ impl DbCrud<Document, DocumentId> for Document {
         let ids = Vec::with_capacity(value.len());
         let tx = db.transaction()?;
         {
-            let mut query = tx.prepare(sql!(
+            let query_str = sql!(
                 r#"
                 insert into
                     document
@@ -313,17 +313,10 @@ impl DbCrud<Document, DocumentId> for Document {
                     created     = ?5,
                     frontmatter = jsonb(?6)                    
                 "#
-            ))?;
-            for Document {
-                id,
-                path,
-                hash,
-                modified,
-                created,
-                data,
-            } in value
-            {
-                query.execute(params![id, path, hash, modified, created, data])?;
+            );
+            let mut query = tx.prepare(query_str)?;
+            for d in value {
+                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
             }
         }
         tx.commit()?;

@@ -1,5 +1,6 @@
 pub mod collection;
 pub mod db;
+pub mod hasher;
 pub mod parser;
 pub mod paths;
 pub mod slug;

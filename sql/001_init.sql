@@ -12,8 +12,7 @@ create table document (
     hash        integer not null,        -- file hash, used to detect file changes
     modified    text    not null,        -- file modified timestamp, used to detect file changes
     created     text    not null,        -- file created timestamp
-    frontmatter blob not null,            -- frontmatter data. jsonb encoded json <https://sqlite.org/json1.html#jsonb>. Use the jsonb() function when inserting and reading from this table
-    without rowid
+    frontmatter blob not null            -- frontmatter data. jsonb encoded json <https://sqlite.org/json1.html#jsonb>. Use the jsonb() function when inserting and reading from this table
 ) strict;
 
 -- TODO, what behaviour should we have when target of a link is removed?
