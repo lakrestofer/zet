@@ -1,5 +1,5 @@
 use rusqlite::{
-    ToSql,
+    ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
@@ -289,12 +289,45 @@ impl DbCrud<Document, DocumentId> for Document {
             })?)
     }
 
-    fn insert(db: &mut rusqlite::Connection, value: Document) -> Result<DocumentId> {
-        todo!()
-    }
-
-    fn update(db: &mut rusqlite::Connection, id: DocumentId, value: Document) -> Result<()> {
-        todo!()
+    fn upsert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
+        let ids = Vec::with_capacity(value.len());
+        let tx = db.transaction()?;
+        {
+            let mut query = tx.prepare(sql!(
+                r#"
+                insert into
+                    document
+                values (
+                    ?1,
+                    ?2,
+                    ?3,
+                    ?4,
+                    ?5,
+                    jsonb(?6)
+                ) on conflict(
+                    id
+                ) do update set
+                    path        = ?2,
+                    hash        = ?3,
+                    modified    = ?4,
+                    created     = ?5,
+                    frontmatter = jsonb(?6)                    
+                "#
+            ))?;
+            for Document {
+                id,
+                path,
+                hash,
+                modified,
+                created,
+                data,
+            } in value
+            {
+                query.execute(params![id, path, hash, modified, created, data])?;
+            }
+        }
+        tx.commit()?;
+        Ok(ids)
     }
 
     fn delete(db: &mut rusqlite::Connection, id: DocumentId) -> Result<()> {
