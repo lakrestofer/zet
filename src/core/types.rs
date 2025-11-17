@@ -290,6 +290,7 @@ impl DbCrud<Document, DocumentId> for Document {
     }
 
     fn upsert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
+        log::debug!("upserting {} documents", value.len());
         let ids = Vec::with_capacity(value.len());
         let tx = db.transaction()?;
         {

@@ -57,14 +57,20 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
     let mut db_documents = Vec::with_capacity(documents.len());
 
     for doc in documents {
-        db_nodes.push(doc.content);
+        db_nodes.push((doc.document.id.clone(), doc.content));
         db_documents.push(doc.document);
     }
 
     Document::upsert(db, db_documents)?;
 
+    for (id, nodes) in db_nodes {
+        db_insert_nodes(db, id, nodes);
+    }
+
     Ok(())
 }
+
+fn db_insert_nodes(db: &mut DB, doc_id: DocumentId, nodes: Vec<ast_nodes::Node>) -> Result<()> {}
 
 fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<DocumentData>> {
     let mut document_data = Vec::new();
