@@ -1,5 +1,5 @@
 use rusqlite::{
-    ToSql, params,
+    Error, ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
@@ -71,15 +71,8 @@ pub struct Document {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InternalLink {
-    pub node_id: u64,
-    pub document_id_source: DocumentId,
-    pub document_id_target: DocumentId,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
-    pub id: u64,
+    pub id: i64,
     pub document_id: DocumentId,
     pub node_type: NodeKind,
     pub range_start: usize,
@@ -115,23 +108,9 @@ impl Document {
     }
 }
 
-impl InternalLink {
-    pub fn new(
-        node_id: u64,
-        document_id_source: DocumentId,
-        document_id_target: DocumentId,
-    ) -> Self {
-        Self {
-            node_id,
-            document_id_source,
-            document_id_target,
-        }
-    }
-}
-
 impl Node {
     pub fn new(
-        id: u64,
+        id: i64,
         document_id: DocumentId,
         node_type: NodeKind,
         range_start: usize,
@@ -152,6 +131,23 @@ impl Node {
 impl From<String> for DocumentId {
     fn from(value: String) -> Self {
         Self(value)
+    }
+}
+
+impl FromSql for NodeKind {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let str_value = value.as_str()?;
+        let value = serde_json::from_str(str_value).map_err(|_| FromSqlError::InvalidType)?;
+        Ok(value)
+    }
+}
+
+impl ToSql for NodeKind {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        match serde_json::to_string(self) {
+            Ok(str) => Ok(str.into()),
+            Err(_) => panic!("Could not serialize NodeKind as string"),
+        }
     }
 }
 
@@ -235,16 +231,16 @@ impl DbCrud<Document, DocumentId> for Document {
         Ok(db
             .prepare(sql!(
                 r#"
-            select
-                id,
-                path,
-                hash,
-                modified,
-                created,
-                json(frontmatter) as frontmatter
-            from
-                document
-        "#
+                select
+                    id,
+                    path,
+                    hash,
+                    modified,
+                    created,
+                    json(frontmatter) as frontmatter
+                from
+                    document
+                "#
             ))?
             .query_map([], |r| {
                 Ok(Document::new(
@@ -299,11 +295,11 @@ impl DbCrud<Document, DocumentId> for Document {
                 insert into
                     document
                 values (
-                    ?1,
-                    ?2,
-                    ?3,
-                    ?4,
-                    ?5,
+                    ?1,        -- id       (text)
+                    ?2,        -- path     (text)
+                    ?3,        -- hash     (integer)
+                    ?4,        -- modified (text)
+                    ?5,        -- created  (text)
                     jsonb(?6)
                 ) on conflict(
                     id
@@ -324,7 +320,95 @@ impl DbCrud<Document, DocumentId> for Document {
         Ok(ids)
     }
 
-    fn delete(db: &mut rusqlite::Connection, id: DocumentId) -> Result<()> {
+    fn delete(db: &mut rusqlite::Connection, ids: Vec<DocumentId>) -> Result<()> {
+        todo!()
+    }
+}
+
+impl DbCrud<Node, i64> for Node {
+    fn list(db: &rusqlite::Connection) -> Result<Vec<Node>> {
+        Ok(db
+            .prepare(sql!(
+                r#"
+                select
+                    id,
+                    document_id,
+                    type,
+                    range_start,
+                    range_end,
+                    json(data)
+                    
+                from
+                    node
+                "#
+            ))?
+            .query_map([], |r| {
+                Ok(Node {
+                    id: r.get(0)?,
+                    document_id: r.get(1)?,
+                    node_type: r.get(2)?,
+                    range_start: r.get(3)?,
+                    range_end: r.get(4)?,
+                    data: r.get(5)?,
+                })
+            })?
+            .map(|f| f.map_err(From::from))
+            .collect::<Result<Vec<Node>>>()?)
+    }
+
+    fn get(db: &mut rusqlite::Connection, id: i64) -> Result<Node> {
+        todo!()
+    }
+
+    fn upsert(db: &mut rusqlite::Connection, nodes: Vec<Node>) -> Result<Vec<i64>> {
+        let mut ids = Vec::new();
+        let tx = db.transaction()?;
+        {
+            let mut query = tx.prepare(sql!(
+                r#"
+                insert into
+                    node
+                values (
+                    ?1,        -- id          (integer)
+                    ?2,        -- document_id (text)
+                    ?3,        -- type        (text)
+                    ?4,        -- range_start (integer)
+                    ?5,        -- range_end   (integer)
+                    jsonb(?6)  -- data        (blob)
+                ) on conflict(
+                    id
+                ) do update set
+                     document_id = ?2,
+                     type        = ?3,
+                     range_start = ?4,
+                     range_end   = ?5,
+                     data        = jsonb(?6)
+                "#
+            ))?;
+            for n in nodes {
+                let id = query
+                    .query_row(
+                        params![
+                            n.id,
+                            n.document_id,
+                            n.node_type,
+                            n.range_start,
+                            n.range_end,
+                            n.data
+                        ],
+                        |r| r.get(0),
+                    )
+                    .unwrap();
+
+                ids.push(id);
+            }
+        }
+        tx.commit()?;
+
+        Ok(ids)
+    }
+
+    fn delete(db: &mut rusqlite::Connection, ids: Vec<i64>) -> Result<()> {
         todo!()
     }
 }

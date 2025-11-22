@@ -744,6 +744,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 
 [[package]]
+name = "optfield"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "969ccca8ffc4fb105bd131a228107d5c9dd89d9d627edf3295cbe979156f9712"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "owo-colors"
 version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1589,6 +1600,7 @@ dependencies = [
  "insta",
  "log",
  "normalize-path",
+ "optfield",
  "pulldown-cmark",
  "resolve-path",
  "rusqlite",

@@ -54,9 +54,9 @@ pub trait DbCrud<T, I> {
     fn list(db: &Connection) -> Result<Vec<T>>;
     fn get(db: &mut Connection, id: I) -> Result<T>;
 
-    fn upsert(db: &mut Connection, value: Vec<T>) -> Result<Vec<I>>;
+    fn upsert(db: &mut Connection, values: Vec<T>) -> Result<Vec<I>>;
 
-    fn delete(db: &mut Connection, id: I) -> Result<()>;
+    fn delete(db: &mut Connection, ids: Vec<I>) -> Result<()>;
 }
 
 #[cfg(test)]

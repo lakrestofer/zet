@@ -8,8 +8,8 @@ use zet::{
         hasher::hash,
         parser::{FrontMatterParser, ast_nodes},
         types::{
-            CreatedTimestamp, Document, DocumentId, DocumentPath, InternalLink, JsonData,
-            ModifiedTimestamp, Node,
+            CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp,
+            Node, NodeKind,
         },
     },
 };
@@ -64,21 +64,67 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
     Document::upsert(db, db_documents)?;
 
     for (id, nodes) in db_nodes {
-        db_insert_nodes(db, id, nodes);
+        db_insert_nodes(db, id, None, nodes)?;
     }
 
     Ok(())
 }
 
-fn db_insert_nodes(db: &mut DB, doc_id: DocumentId, nodes: Vec<ast_nodes::Node>) -> Result<()> {}
+fn db_insert_nodes(
+    db: &mut DB,
+    document_id: DocumentId,
+    parent_id: Option<i64>,
+    nodes: Vec<ast_nodes::Node>,
+) -> Result<()> {
+    for node in nodes {
+        use ast_nodes::Node as AstNode;
+        let node: PartialNode = match node {
+            AstNode::Heading(heading) => todo!(),
+            AstNode::Paragraph(paragraph) => todo!(),
+            AstNode::BlockQuote(block_quote) => todo!(),
+            AstNode::Text(text) => todo!(),
+            AstNode::TextDecoration(text_decoration) => todo!(),
+            AstNode::Html(html) => todo!(),
+            AstNode::FootnoteReference(footnote_reference) => todo!(),
+            AstNode::FootnoteDefinition(footnote_definition) => todo!(),
+            AstNode::DefinitionList(definition_list) => todo!(),
+            AstNode::DefinitionListTitle(definition_list_title) => todo!(),
+            AstNode::DefinitionListDefinition(definition_list_definition) => todo!(),
+            AstNode::InlineLink(inline_link) => todo!(),
+            AstNode::ReferenceLink(reference_link) => todo!(),
+            AstNode::ShortcutLink(shortcut_link) => todo!(),
+            AstNode::AutoLink(auto_link) => todo!(),
+            AstNode::WikiLink(wiki_link) => todo!(),
+            AstNode::LinkReference(link_reference) => todo!(),
+            AstNode::InlineImage(inline_image) => todo!(),
+            AstNode::ReferenceImage(reference_image) => todo!(),
+            AstNode::List(list) => todo!(),
+            AstNode::Item(item) => todo!(),
+            AstNode::TaskListMarker(task_list_marker) => todo!(),
+            AstNode::SoftBreak(soft_break) => todo!(),
+            AstNode::HardBreak(hard_break) => todo!(),
+            AstNode::Code(code) => todo!(),
+            AstNode::CodeBlock(code_block) => todo!(),
+            AstNode::HorizontalRule(horizontal_rule) => todo!(),
+            AstNode::Table(table) => todo!(),
+            AstNode::TableHead(table_head) => todo!(),
+            AstNode::TableRow(table_row) => todo!(),
+            AstNode::TableCell(table_cell) => todo!(),
+            AstNode::MetadataBlock(metadata_block) => todo!(),
+            AstNode::DisplayMath(display_math) => todo!(),
+            AstNode::InlineMath(inline_math) => todo!(),
+            _ => return Err(eyre!("cannot convert ast node to db node")),
+        };
+    }
+
+    Ok(())
+}
 
 fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<DocumentData>> {
     let mut document_data = Vec::new();
 
     for DocumentPath(path) in new {
-        let id = DocumentId(zet::core::slug::slugify(
-            path.to_str().ok_or(eyre!("path is not valid utf8"))?,
-        ));
+        let id = path_to_id(path.clone());
 
         let metadata = std::fs::metadata(&path)?;
         let modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
@@ -174,4 +220,22 @@ fn delete_nodes(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
     }
     tx.commit()?;
     Ok(())
+}
+
+fn path_to_id(mut path: PathBuf) -> DocumentId {
+    path.set_extension("");
+    DocumentId(
+        path.to_str()
+            .expect("document path did not constitute valid utf8")
+            .to_owned(),
+    )
+}
+
+struct PartialNode {
+    pub document_id: DocumentId,
+    pub parent_id: Option<i64>,
+    pub node_type: NodeKind,
+    pub range_start: usize,
+    pub range_end: usize,
+    pub data: JsonData,
 }
