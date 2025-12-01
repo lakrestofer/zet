@@ -27,11 +27,12 @@ create table internal_link (
 
 -- the contents of a document
 create table node (
-    id integer primary key,
-    document_id text,
-    type text,
-    range_start integer,
-    range_end integer,
-    data blob, -- jsonb encoded data. Dependend on the node type
+    id          integer primary key,
+    document_id text    not null,
+    parent_id   integer,
+    type        text    not null,
+    range_start integer not null,
+    range_end   integer not null,
+    data        blob    not null, -- jsonb encoded data. Dependend on the node type
     foreign key(document_id) references document(id)
 ) strict;

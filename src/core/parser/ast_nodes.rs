@@ -136,19 +136,6 @@ make_node_struct_impls! {
         pub children: Vec<Node>,
     }
 
-    pub struct DefinitionList {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-    pub struct DefinitionListTitle {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-    pub struct DefinitionListDefinition{
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
 
     pub struct InlineLink {
         pub range: Range,
@@ -297,13 +284,11 @@ macro_rules! generate_node {
         $($node_name($node_name)),*,
     }
 
-    #[cfg(debug_assertions)]
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum NodeKind {
         $($node_name),*,
     }
 
-    #[cfg(debug_assertions)]
     impl Node {
         #[allow(dead_code)]
         pub fn kind(&self) -> NodeKind {
@@ -382,9 +367,9 @@ generate_node![
     Html,
     FootnoteReference,
     FootnoteDefinition,
-    DefinitionList,
-    DefinitionListTitle,
-    DefinitionListDefinition,
+    // DefinitionList,
+    // DefinitionListTitle,
+    // DefinitionListDefinition,
     InlineLink,
     ReferenceLink,
     ShortcutLink,

@@ -1,4 +1,7 @@
+use std::ops::Range;
+
 use color_eyre::eyre::eyre;
+use rusqlite::{params, params_from_iter};
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
 use zet::{
@@ -6,10 +9,12 @@ use zet::{
     core::{
         db::{DB, DbCrud},
         hasher::hash,
-        parser::{FrontMatterParser, ast_nodes},
+        parser::{
+            FrontMatterParser,
+            ast_nodes::{self, NodeKind, Ranged},
+        },
         types::{
-            CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp,
-            Node, NodeKind,
+            CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp, Node,
         },
     },
 };
@@ -64,58 +69,148 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
     Document::upsert(db, db_documents)?;
 
     for (id, nodes) in db_nodes {
-        db_insert_nodes(db, id, None, nodes)?;
+        db_insert_nodes(db, id, nodes)?;
     }
 
     Ok(())
 }
 
+fn build_db_nodes(
+    parent: Option<usize>,
+    nodes: Vec<ast_nodes::Node>,
+    db_nodes: &mut Vec<(NodeKind, Range<usize>, Option<usize>, JsonData)>,
+) {
+    for node in nodes {
+        use ast_nodes::{Node::*, *};
+        let kind = node.kind();
+        let range = node.range().to_owned();
+
+        match node {
+            Document(d) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), d.children, db_nodes);
+            }
+            Paragraph(p) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), p.children, db_nodes);
+            }
+            BlockQuote(q) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), q.children, db_nodes);
+            }
+            Heading(h) => {
+                let iter = h
+                    .attributes
+                    .into_iter()
+                    .map(|(k, v)| (k, serde_json::to_value(v).unwrap()));
+                let map = serde_json::Map::from_iter(iter);
+                let data = json!({
+                   "id": h.id,
+                   "classes": h.classes,
+                   "attributes": map,
+                   "level": h.level
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                build_db_nodes(Some(db_nodes.len() - 1), h.children, db_nodes);
+            }
+            Text(_) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+            }
+            TextDecoration(td) => {
+                let data = json!({
+                    "kind": td.kind,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                build_db_nodes(Some(db_nodes.len() - 1), td.children, db_nodes);
+            }
+            Html(html) => {
+                let data = json!({
+                    "text": html.text,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            FootnoteReference(fr) => {
+                let data = json!({
+                    "name": fr.name,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            FootnoteDefinition(fd) => {
+                let data = json!({
+                    "name": fd.name,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                build_db_nodes(Some(db_nodes.len() - 1), fd.children, db_nodes);
+            }
+            InlineLink(inline_link) => todo!(),
+            ReferenceLink(reference_link) => todo!(),
+            ShortcutLink(shortcut_link) => todo!(),
+            AutoLink(auto_link) => todo!(),
+            WikiLink(wiki_link) => todo!(),
+            LinkReference(link_reference) => todo!(),
+            InlineImage(inline_image) => todo!(),
+            ReferenceImage(reference_image) => todo!(),
+            List(list) => todo!(),
+            Item(item) => todo!(),
+            TaskListMarker(task_list_marker) => todo!(),
+            SoftBreak(soft_break) => todo!(),
+            HardBreak(hard_break) => todo!(),
+            Code(code) => todo!(),
+            CodeBlock(code_block) => todo!(),
+            HorizontalRule(horizontal_rule) => todo!(),
+            Table(table) => todo!(),
+            TableHead(table_head) => todo!(),
+            TableRow(table_row) => todo!(),
+            TableCell(table_cell) => todo!(),
+            MetadataBlock(metadata_block) => todo!(),
+            DisplayMath(display_math) => todo!(),
+            InlineMath(inline_math) => todo!(),
+            // NotImplemented(_) => todo!(),
+            _ => {}
+        }
+
+        // let data = serde_json::to_value(n).unwrap_or_else(|e| {
+        //     log::error!("could not convert node to json representation: {:?}", e);
+        //     serde_json::Value::Null
+        // });
+    }
+}
+
 fn db_insert_nodes(
     db: &mut DB,
     document_id: DocumentId,
-    parent_id: Option<i64>,
     nodes: Vec<ast_nodes::Node>,
 ) -> Result<()> {
-    for node in nodes {
-        use ast_nodes::Node as AstNode;
-        let node: PartialNode = match node {
-            AstNode::Heading(heading) => todo!(),
-            AstNode::Paragraph(paragraph) => todo!(),
-            AstNode::BlockQuote(block_quote) => todo!(),
-            AstNode::Text(text) => todo!(),
-            AstNode::TextDecoration(text_decoration) => todo!(),
-            AstNode::Html(html) => todo!(),
-            AstNode::FootnoteReference(footnote_reference) => todo!(),
-            AstNode::FootnoteDefinition(footnote_definition) => todo!(),
-            AstNode::DefinitionList(definition_list) => todo!(),
-            AstNode::DefinitionListTitle(definition_list_title) => todo!(),
-            AstNode::DefinitionListDefinition(definition_list_definition) => todo!(),
-            AstNode::InlineLink(inline_link) => todo!(),
-            AstNode::ReferenceLink(reference_link) => todo!(),
-            AstNode::ShortcutLink(shortcut_link) => todo!(),
-            AstNode::AutoLink(auto_link) => todo!(),
-            AstNode::WikiLink(wiki_link) => todo!(),
-            AstNode::LinkReference(link_reference) => todo!(),
-            AstNode::InlineImage(inline_image) => todo!(),
-            AstNode::ReferenceImage(reference_image) => todo!(),
-            AstNode::List(list) => todo!(),
-            AstNode::Item(item) => todo!(),
-            AstNode::TaskListMarker(task_list_marker) => todo!(),
-            AstNode::SoftBreak(soft_break) => todo!(),
-            AstNode::HardBreak(hard_break) => todo!(),
-            AstNode::Code(code) => todo!(),
-            AstNode::CodeBlock(code_block) => todo!(),
-            AstNode::HorizontalRule(horizontal_rule) => todo!(),
-            AstNode::Table(table) => todo!(),
-            AstNode::TableHead(table_head) => todo!(),
-            AstNode::TableRow(table_row) => todo!(),
-            AstNode::TableCell(table_cell) => todo!(),
-            AstNode::MetadataBlock(metadata_block) => todo!(),
-            AstNode::DisplayMath(display_math) => todo!(),
-            AstNode::InlineMath(inline_math) => todo!(),
-            _ => return Err(eyre!("cannot convert ast node to db node")),
-        };
-    }
+    let mut db_nodes = Vec::new();
+
+    build_db_nodes(None, nodes, &mut db_nodes);
+
+    // let tx = db.transaction()?;
+    // {
+    //     let mut query = tx.prepare(sql!(
+    //         r#"
+    //         insert into
+    //             node
+    //         values (
+    //             ?1,
+    //             ?2,
+    //             ?3,
+    //             ?4,
+    //             ?5,
+    //             ?6,
+    //         ) returning id
+    //     "#
+    //     ))?;
+    //     let mut ids = Vec::new();
+    //     for (document_id, node_kind, range_start, range_end, json_data) in db_nodes {
+    //         let id: i64 = query.query_row(
+    //             params![document_id, node_kind, range_start, range_end, json_data],
+    //             |r| r.get(0),
+    //         )?;
+    //         ids.push(id);
+    //     }
+    // }
+    // tx.commit()?;
 
     Ok(())
 }

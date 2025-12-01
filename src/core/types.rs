@@ -8,52 +8,12 @@ use sql_minifier::macros::minify_sql as sql;
 use std::{path::PathBuf, str::FromStr};
 use time::OffsetDateTime;
 
-use crate::core::db::DbCrud;
+use crate::core::{db::DbCrud, parser::ast_nodes::NodeKind};
 use crate::result::Result;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentId(pub String);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum NodeKind {
-    Document,
-    NotImplemented,
-    Heading,
-    Paragraph,
-    BlockQuote,
-    Text,
-    TextDecoration,
-    Html,
-    FootnoteReference,
-    FootnoteDefinition,
-    DefinitionList,
-    DefinitionListTitle,
-    DefinitionListDefinition,
-    InlineLink,
-    ReferenceLink,
-    ShortcutLink,
-    AutoLink,
-    WikiLink,
-    LinkReference,
-    InlineImage,
-    ReferenceImage,
-    List,
-    Item,
-    TaskListMarker,
-    SoftBreak,
-    HardBreak,
-    Code,
-    CodeBlock,
-    HorizontalRule,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    MetadataBlock,
-    DisplayMath,
-    InlineMath,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModifiedTimestamp(pub OffsetDateTime);
@@ -80,7 +40,7 @@ pub struct Node {
     pub data: JsonData,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[repr(transparent)]
 pub struct JsonData(pub serde_json::Value);
 

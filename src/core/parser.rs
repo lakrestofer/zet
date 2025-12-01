@@ -4,6 +4,7 @@ use crate::core::types::JsonData;
 use crate::preamble::*;
 
 use crate::core::parser::ast_nodes::{Heading, *};
+use color_eyre::eyre::eyre;
 use gray_matter::{
     Matter,
     engine::{JSON, TOML, YAML},
@@ -234,9 +235,6 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         Tag::List(n) => parse_list(n, range, iter),
         Tag::Item => parse_item(range, iter),
         Tag::FootnoteDefinition(str) => parse_footnote_def(str, range, iter),
-        Tag::DefinitionList => parse_def_list(range, iter),
-        Tag::DefinitionListTitle => parse_def_list_title(range, iter),
-        Tag::DefinitionListDefinition => parse_def_list_def(range, iter),
         Tag::Table(alignments) => parse_table(alignments, range, iter),
         Tag::TableHead => parse_table_head(range, iter).map(|h| h.into()),
         Tag::TableRow => parse_table_row(range, iter).map(|r| r.into()),
@@ -261,6 +259,7 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         Tag::MetadataBlock(metadata_block_kind) => {
             parse_metadata_block(metadata_block_kind, range, iter)
         }
+        _ => Err(Error::ParseError(format!("unsupported tag"))),
     }
 }
 
@@ -459,53 +458,6 @@ fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
     }
 
     Ok(TableHead { range, cells })
-}
-
-fn parse_def_list_def(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
-    let mut children = Vec::new();
-
-    while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::DefinitionListDefinition) => break,
-            _ => children.push(parse_event(event, range, iter)?),
-        }
-    }
-    Ok(DefinitionListDefinition::new(range, children).into())
-}
-
-fn parse_def_list_title(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
-    let mut children = Vec::new();
-
-    while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::DefinitionListTitle) => break,
-            _ => children.push(parse_event(event, range, iter)?),
-        }
-    }
-
-    Ok(DefinitionListTitle::new(range, children).into())
-}
-
-fn parse_def_list(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
-    let mut children = Vec::new();
-
-    while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::DefinitionList) => break,
-            _ => children.push(parse_event(event, range, iter)?),
-        }
-    }
-
-    Ok(DefinitionList::new(range, children).into())
 }
 
 fn parse_footnote_def(
