@@ -1,5 +1,5 @@
 use rusqlite::{
-    Error, ToSql, params,
+    ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
@@ -188,7 +188,7 @@ impl From<JsonData> for Value {
 
 impl DbCrud<Document, DocumentId> for Document {
     fn list(db: &rusqlite::Connection) -> Result<Vec<Document>> {
-        Ok(db
+        db
             .prepare(sql!(
                 r#"
                 select
@@ -213,7 +213,7 @@ impl DbCrud<Document, DocumentId> for Document {
                 ))
             })?
             .map(|f| f.map_err(From::from))
-            .collect::<Result<Vec<Document>>>()?)
+            .collect::<Result<Vec<Document>>>()
     }
 
     fn get(db: &mut rusqlite::Connection, id: DocumentId) -> Result<Document> {
@@ -287,7 +287,7 @@ impl DbCrud<Document, DocumentId> for Document {
 
 impl DbCrud<Node, i64> for Node {
     fn list(db: &rusqlite::Connection) -> Result<Vec<Node>> {
-        Ok(db
+        db
             .prepare(sql!(
                 r#"
                 select
@@ -313,7 +313,7 @@ impl DbCrud<Node, i64> for Node {
                 })
             })?
             .map(|f| f.map_err(From::from))
-            .collect::<Result<Vec<Node>>>()?)
+            .collect::<Result<Vec<Node>>>()
     }
 
     fn get(db: &mut rusqlite::Connection, id: i64) -> Result<Node> {

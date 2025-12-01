@@ -151,25 +151,25 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         }
         .into()),
         Event::Html(str) => Ok(Html {
-            range: range,
+            range,
             text: str.into_string(),
         }
         .into()),
         Event::InlineHtml(str) => Ok(Html {
-            range: range,
+            range,
             text: str.into_string(),
         }
         .into()),
         Event::FootnoteReference(str) => Ok(FootnoteReference {
-            range: range,
+            range,
             name: String::from(str.as_ref()),
         }
         .into()),
-        Event::SoftBreak => Ok(SoftBreak { range: range }.into()),
-        Event::HardBreak => Ok(HardBreak { range: range }.into()),
-        Event::Rule => Ok(Node::HorizontalRule(HorizontalRule { range: range })),
+        Event::SoftBreak => Ok(SoftBreak { range }.into()),
+        Event::HardBreak => Ok(HardBreak { range }.into()),
+        Event::Rule => Ok(Node::HorizontalRule(HorizontalRule { range })),
         Event::TaskListMarker(checked) => Ok(TaskListMarker {
-            range: range,
+            range,
             is_checked: checked,
         }
         .into()),

@@ -9,13 +9,12 @@ use zet::{
     config::Config,
     core::{
         db::{DB, DbCrud},
-        hasher::hash,
         parser::{
             FrontMatterParser,
             ast_nodes::{self, NodeKind, Ranged},
         },
         types::{
-            CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp, Node,
+            CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp,
         },
     },
 };
@@ -352,7 +351,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
 
         document_data.push(DocumentData {
             document: Document {
-                id: id,
+                id,
                 path: DocumentPath(path),
                 hash,
                 modified,
@@ -389,11 +388,11 @@ fn process_existing_documents(
 
         document_data.push(DocumentData {
             document: Document {
-                id: id,
-                path: path,
-                hash: hash,
-                modified: modified,
-                created: created,
+                id,
+                path,
+                hash,
+                modified,
+                created,
                 data: frontmatter,
             },
             content: nodes.children,

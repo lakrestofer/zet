@@ -1,7 +1,5 @@
 use crate::core::db::DB;
 use crate::core::db::DbCrud;
-use crate::core::hasher;
-use crate::core::hasher::hash;
 use crate::core::paths::workspace_paths;
 use crate::core::types::CreatedTimestamp;
 use crate::core::types::Document;
@@ -12,9 +10,7 @@ use crate::core::types::ModifiedTimestamp;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
-use time::OffsetDateTime;
 
-use crate::preamble::*;
 
 /// given a directory of markdown files, determine the following:
 /// - are there any new documents?
@@ -37,7 +33,7 @@ pub fn collection_status(
     // collect paths of document from root
     let disk_paths: Vec<PathBuf> = workspace_paths(root).unwrap();
 
-    let db_documents: Vec<Document> = Document::list(&db).unwrap();
+    let db_documents: Vec<Document> = Document::list(db).unwrap();
 
     // we start by figuring out documents that have been removed, which are new
     // and which that we need to investigate further.
@@ -49,7 +45,7 @@ pub fn collection_status(
     let new: Vec<DocumentPath> = disk_paths
         .into_iter()
         .filter(|p| !db_path_set.contains(p))
-        .map(|p| DocumentPath(p))
+        .map(DocumentPath)
         .collect();
     let mut exists = Vec::new();
     let mut removed = Vec::new();
@@ -129,5 +125,5 @@ pub fn collection_status(
         })
         .collect();
 
-    return (new, to_update, removed);
+    (new, to_update, removed)
 }

@@ -13,7 +13,7 @@ pub fn app_work_dir(root: &Path) -> PathBuf {
 pub fn db_dir(root: &Path) -> PathBuf {
     root.to_owned()
         .join(format!(".{APP_NAME}"))
-        .join(DB_NAME.to_string())
+        .join(DB_NAME)
 }
 
 /// from CWD, walk up the directory tree until a directory containing .zet
