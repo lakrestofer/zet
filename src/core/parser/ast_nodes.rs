@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use pulldown_cmark::MetadataBlockKind;
-
 pub type Range = std::ops::Range<usize>;
 
 pub trait Ranged {
@@ -72,11 +70,6 @@ make_node_struct_impls! {
         pub children: Vec<Node>,
     }
 
-    pub struct MetadataBlock {
-        pub range: Range,
-        pub kind: MetadataBlockKind,
-        // pub text: String,
-    }
 
     pub struct Heading {
         pub id: Option<String>,
@@ -135,7 +128,6 @@ make_node_struct_impls! {
         pub name: String,
         pub children: Vec<Node>,
     }
-
 
     pub struct InlineLink {
         pub range: Range,
@@ -390,7 +382,6 @@ generate_node![
     TableHead,
     TableRow,
     TableCell,
-    MetadataBlock,
     DisplayMath,
     InlineMath
 ];

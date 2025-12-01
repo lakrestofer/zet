@@ -6,7 +6,10 @@ pub enum Command {
         path: PathBuf,
     },
     /// Reindex the collection. Parsing any new/updated files and updating the cache.
-    Index,
+    Index {
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
     /// A raw sql query on the db
     RawQuery {
         query: String,

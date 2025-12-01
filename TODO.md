@@ -13,3 +13,6 @@ Now I should start on the basic query implementation
 
 - [ ] errors, mix of this_error any eyre, should probably just use
       eyre.
+
+- [ ] right now the pipeline for taking a document and turning it into
+      a representation that we insert into the db.

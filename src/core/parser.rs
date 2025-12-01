@@ -256,28 +256,8 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
             title,
             id,
         } => parse_image(link_type, dest_url, title, id, range, iter),
-        Tag::MetadataBlock(metadata_block_kind) => {
-            parse_metadata_block(metadata_block_kind, range, iter)
-        }
         _ => Err(eyre!("unsupported tag")),
     }
-}
-
-fn parse_metadata_block(
-    kind: pulldown_cmark::MetadataBlockKind,
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    let mut children = Vec::new();
-
-    while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::Image) => break,
-            _ => children.push(parse_event(event, range, iter)?),
-        }
-    }
-
-    Ok(MetadataBlock::new(range, kind).into())
 }
 
 fn parse_image(

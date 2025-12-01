@@ -1,7 +1,7 @@
 use std::ops::Range;
+use std::path::Path;
 
-use color_eyre::eyre::eyre;
-use rusqlite::{params, params_from_iter};
+use rusqlite::params;
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
 use zet::preamble::*;
@@ -22,7 +22,7 @@ use zet::{
 
 use crate::app::preamble::*;
 
-pub fn handle_command(config: Config) -> Result<()> {
+pub fn handle_command(config: Config, force: bool) -> Result<()> {
     let root = &config.root;
     let db_path = zet::core::paths::db_dir(root);
     let mut db = DB::open(db_path)?;
@@ -69,6 +69,7 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
 
     Document::upsert(db, db_documents)?;
 
+    log::debug!("inserting document data: {:?}", db_nodes);
     for (id, nodes) in db_nodes {
         db_insert_nodes(db, id, nodes)?;
     }
@@ -143,30 +144,101 @@ fn build_db_nodes(
                 db_nodes.push((kind, range, parent, JsonData(data)));
                 build_db_nodes(Some(db_nodes.len() - 1), fd.children, db_nodes);
             }
-            InlineLink(inline_link) => todo!(),
-            ReferenceLink(reference_link) => todo!(),
-            ShortcutLink(shortcut_link) => todo!(),
-            AutoLink(auto_link) => todo!(),
-            WikiLink(wiki_link) => todo!(),
-            LinkReference(link_reference) => todo!(),
-            InlineImage(inline_image) => todo!(),
-            ReferenceImage(reference_image) => todo!(),
-            List(list) => todo!(),
-            Item(item) => todo!(),
-            TaskListMarker(task_list_marker) => todo!(),
-            SoftBreak(soft_break) => todo!(),
-            HardBreak(hard_break) => todo!(),
-            Code(code) => todo!(),
-            CodeBlock(code_block) => todo!(),
-            HorizontalRule(horizontal_rule) => todo!(),
-            Table(table) => todo!(),
-            TableHead(table_head) => todo!(),
-            TableRow(table_row) => todo!(),
-            TableCell(table_cell) => todo!(),
-            MetadataBlock(metadata_block) => todo!(),
-            DisplayMath(display_math) => todo!(),
-            InlineMath(inline_math) => todo!(),
+            InlineLink(il) => {
+                let data = json!({
+                    "url": il.url,
+                    "title": il.title,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                build_db_nodes(Some(db_nodes.len() - 1), il.children, db_nodes);
+            }
+            ReferenceLink(rl) => {
+                let data = json!({
+                    "reference": rl.reference,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                build_db_nodes(Some(db_nodes.len() - 1), rl.children, db_nodes);
+            }
+            ShortcutLink(sl) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), sl.children, db_nodes);
+            }
+            AutoLink(al) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), al.children, db_nodes);
+            }
+            WikiLink(wl) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), wl.children, db_nodes);
+            }
+            LinkReference(lr) => {
+                let data = json!({
+                    "name": lr.name,
+                    "link": lr.link,
+                    "title": lr.title,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            InlineImage(_) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+            }
+            ReferenceImage(ri) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+            }
+            List(l) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                build_db_nodes(Some(db_nodes.len() - 1), l.children, db_nodes);
+            }
+            Item(i) => {
+                db_nodes.push((kind, range, parent, Default::default()));
+                let id = db_nodes.len() - 1;
+                build_db_nodes(Some(id), i.children, db_nodes);
+                build_db_nodes(Some(id), i.sub_lists, db_nodes);
+            }
+            TaskListMarker(tlm) => {
+                let data = json!({"checked": tlm.is_checked});
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                // let id = db_nodes.len() - 1;
+                // build_db_nodes(Some(id), ltm., db_nodes);
+            }
+            Code(code) => {
+                let data = json!({"code": code.code});
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            CodeBlock(cb) => {
+                let data = json!({
+                    "tag": cb.tag,
+                    "is_fenced": cb.is_fenced,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+                build_db_nodes(Some(db_nodes.len() - 1), cb.children, db_nodes);
+            }
+            HorizontalRule(_) => db_nodes.push((kind, range, parent, Default::default())),
+            Table(table) => {
+                let data = json!({
+                    "header": table.header,
+                    "rows": table.rows,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            DisplayMath(dm) => {
+                let data = json!({
+                    "text": dm.text,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            InlineMath(im) => {
+                let data = json!({
+                    "text": im.text,
+                });
+                db_nodes.push((kind, range, parent, JsonData(data)));
+            }
+            TableHead(_) | TableRow(_) | TableCell(_) => {
+                panic!("should not be able to reach this!")
+            }
             // NotImplemented(_) => todo!(),
+            // SoftBreak(soft_break) => todo!(),
+            // HardBreak(hard_break) => todo!(),
             _ => {}
         }
 
@@ -182,36 +254,78 @@ fn db_insert_nodes(
     document_id: DocumentId,
     nodes: Vec<ast_nodes::Node>,
 ) -> Result<()> {
+    // we build a list of all the nodes we are to insert, turning
+    // the tree structure into a flat list
+    // we then do the insertion in two steps
+    // - insert all the nodes
+    // - update any references to parent nodes
+
     let mut db_nodes = Vec::new();
 
     build_db_nodes(None, nodes, &mut db_nodes);
 
-    // let tx = db.transaction()?;
-    // {
-    //     let mut query = tx.prepare(sql!(
-    //         r#"
-    //         insert into
-    //             node
-    //         values (
-    //             ?1,
-    //             ?2,
-    //             ?3,
-    //             ?4,
-    //             ?5,
-    //             ?6,
-    //         ) returning id
-    //     "#
-    //     ))?;
-    //     let mut ids = Vec::new();
-    //     for (document_id, node_kind, range_start, range_end, json_data) in db_nodes {
-    //         let id: i64 = query.query_row(
-    //             params![document_id, node_kind, range_start, range_end, json_data],
-    //             |r| r.get(0),
-    //         )?;
-    //         ids.push(id);
-    //     }
-    // }
-    // tx.commit()?;
+    let tx = db.transaction()?;
+    {
+        let mut query = tx
+            .prepare(sql!(
+                r#"
+            insert into node (
+                document_id,
+                type,
+                range_start,
+                range_end,
+                data
+            ) values (
+                ?1,
+                ?2,
+                ?3,
+                ?4,
+                jsonb(?5)
+            ) returning id
+        "#
+            ))
+            .unwrap();
+        // first we insert all the nodes and gather their new ids
+        let mut ids = Vec::new();
+        for (node_kind, range, _, json_data) in db_nodes.iter() {
+            let Range { start, end } = range;
+            let id: i64 = query.query_row(
+                params![document_id, node_kind, start, end, json_data],
+                |r| r.get(0),
+            )?;
+            ids.push(id);
+        }
+        // then we check which nodes had a parent (that we then need to update)
+        //
+        // db_nodes had an incrementing parent_id that referred to the index of its parent
+        // in the same list
+        //
+        // db_nodes = [_,_,_,3,3,3,3,_,_,_,_, 11, 11, 11]
+        // ids =      [6,7,8,9,10,11,12,13,14,15,16,17,18, 19]
+        // to_update = [(9,8), (10,8), (11,8), (12,8), (17, 16), (18, 16), (19, 16))]
+        let to_update = db_nodes
+            .into_iter()
+            .enumerate()
+            .filter(|(_, (_, _, parent, _))| parent.is_some())
+            .map(|(i, (_, _, parent, _))| (i, parent.unwrap()))
+            .map(|(node_index, parent_index)| (ids[node_index], ids[parent_index]));
+
+        let mut query = tx
+            .prepare(sql!(
+                r#"
+                update node
+                set
+                    parent_id = ?2
+                where
+                    id = ?1
+                "#
+            ))
+            .unwrap();
+        for (node, parent) in to_update {
+            query.execute(params![node, parent])?;
+        }
+    }
+    tx.commit()?;
 
     Ok(())
 }
@@ -220,7 +334,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
     let mut document_data = Vec::new();
 
     for DocumentPath(path) in new {
-        let id = path_to_id(path.clone());
+        let id = path_to_id(&config.root, path.clone());
 
         let metadata = std::fs::metadata(&path)?;
         let modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
@@ -318,20 +432,12 @@ fn delete_nodes(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
     Ok(())
 }
 
-fn path_to_id(mut path: PathBuf) -> DocumentId {
+fn path_to_id(root: &Path, mut path: PathBuf) -> DocumentId {
     path.set_extension("");
+    let path = path.strip_prefix(root).unwrap();
     DocumentId(
         path.to_str()
             .expect("document path did not constitute valid utf8")
             .to_owned(),
     )
-}
-
-struct PartialNode {
-    pub document_id: DocumentId,
-    pub parent_id: Option<i64>,
-    pub node_type: NodeKind,
-    pub range_start: usize,
-    pub range_end: usize,
-    pub data: JsonData,
 }

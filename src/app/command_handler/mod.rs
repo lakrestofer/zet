@@ -20,7 +20,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
 
             match command {
                 Command::Parse { path } => parse::handle_command(config, path)?,
-                Command::Index => index::handle_command(config)?,
+                Command::Index { force } => index::handle_command(config, force)?,
                 Command::Lsp => todo!(),
                 Command::Format => todo!(),
                 _ => unreachable!(),
