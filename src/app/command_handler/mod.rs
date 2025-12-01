@@ -5,6 +5,7 @@ pub mod init;
 pub mod parse;
 
 use crate::app::preamble::*;
+use zet::preamble::*;
 
 pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
     match command {

@@ -1,6 +1,7 @@
 use zet::{config::Config, core::parser::FrontMatterParser};
 
 use crate::app::preamble::*;
+use zet::preamble::*;
 
 pub fn handle_command(config: Config, path: PathBuf) -> Result<()> {
     log::debug!("parsing {:?}", path);

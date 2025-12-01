@@ -39,8 +39,8 @@ pub fn parse(
 
     let events = document_parser.parse(content)?;
 
-    let events_json = serde_json::to_string_pretty(&events)
-        .map_err(|_| Error::ParseError("could not convert to json".into()))?;
+    let events_json =
+        serde_json::to_string_pretty(&events).map_err(|_| eyre!("could not convert to json"))?;
 
     log::debug!("{}", events_json);
 
@@ -259,7 +259,7 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         Tag::MetadataBlock(metadata_block_kind) => {
             parse_metadata_block(metadata_block_kind, range, iter)
         }
-        _ => Err(Error::ParseError(format!("unsupported tag"))),
+        _ => Err(eyre!("unsupported tag")),
     }
 }
 
@@ -267,7 +267,7 @@ fn parse_metadata_block(
     kind: pulldown_cmark::MetadataBlockKind,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
@@ -287,7 +287,7 @@ fn parse_image(
     id: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+) -> Result<Node> {
     for (event, _) in iter.by_ref() {
         match event {
             Event::End(TagEnd::Image) => break,
@@ -300,7 +300,7 @@ fn parse_image(
         | LinkType::ReferenceUnknown
         | LinkType::Collapsed
         | LinkType::CollapsedUnknown => Ok(ReferenceImage::new(range).into()),
-        _ => Err(Error::ParseError("not implemented yet".into())),
+        _ => Err(eyre!("not implemented yet")),
     }
 }
 
@@ -384,17 +384,14 @@ fn parse_table_cell(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
     Ok(TableCell::new(range, children))
 }
 
-fn parse_table_row(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<TableRow, Error> {
+fn parse_table_row(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableRow> {
     let mut cells = Vec::new();
 
     while let Some((event, range)) = iter.next() {
         match event {
             Event::End(TagEnd::TableRow) => break,
             Event::Start(Tag::TableCell) => cells.push(parse_table_cell(range, iter)?),
-            _ => return Err(Error::ParseError("expected table row".into())),
+            _ => return Err(eyre!("expected table row")),
         }
     }
 
@@ -405,13 +402,11 @@ fn parse_table(
     alignments: Vec<pulldown_cmark::Alignment>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+) -> Result<Node> {
     let header = if let Some((Event::Start(Tag::TableHead), range)) = iter.next() {
         parse_table_head(range, iter)?
     } else {
-        return Err(Error::ParseError(
-            "header expected but received none".into(),
-        ));
+        return Err(eyre!("header expected but received none"));
     };
 
     let mut rows = Vec::new();
@@ -420,7 +415,7 @@ fn parse_table(
         match event {
             Event::End(TagEnd::Table) => break,
             Event::Start(Tag::TableRow) => rows.push(parse_table_row(range, iter)?),
-            _ => return Err(Error::ParseError("expected table row".into())),
+            _ => return Err(eyre!("expected table row")),
         }
     }
 
@@ -449,10 +444,7 @@ fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
             Event::Start(Tag::TableCell) => cells.push(parse_table_cell(range, iter)?),
             Event::End(TagEnd::TableHead) => break,
             e => {
-                return Err(Error::ParseError(format!(
-                    "Received unexpected event: {:?}",
-                    e
-                )));
+                return Err(eyre!("Received unexpected event: {:?}", e));
             }
         }
     }
@@ -464,7 +456,7 @@ fn parse_footnote_def(
     name: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
@@ -477,10 +469,7 @@ fn parse_footnote_def(
     Ok(FootnoteDefinition::new(range, name.to_string(), children).into())
 }
 
-fn parse_item(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut children = Vec::new();
     let mut sub_lists = Vec::new();
 
@@ -498,11 +487,7 @@ fn parse_item(
     Ok(Item::new(range, children, sub_lists).into())
 }
 
-fn parse_list(
-    n: Option<u64>,
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
@@ -515,10 +500,7 @@ fn parse_list(
     Ok(List::new(range, n, children).into())
 }
 
-fn parse_htmlblock(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+fn parse_htmlblock(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
@@ -535,7 +517,7 @@ fn parse_code_block(
     kind: pulldown_cmark::CodeBlockKind<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
@@ -557,10 +539,7 @@ fn parse_code_block(
     Ok(CodeBlock::new(range, tag, is_fenced, children).into())
 }
 
-fn parse_blockquote(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+fn parse_blockquote(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
@@ -573,10 +552,7 @@ fn parse_blockquote(
     Ok(BlockQuote::new(range, children).into())
 }
 
-fn parse_paragraph(
-    range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
-) -> std::result::Result<Node, Error> {
+fn parse_paragraph(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {

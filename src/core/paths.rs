@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use color_eyre::eyre::eyre;
 use ignore::{DirEntry, WalkBuilder};
 
 use crate::preamble::*;
@@ -21,7 +22,7 @@ pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(dir) = dir {
         if !app_work_dir(&dir).is_dir() {
             log::error!("provided root dir does not contain a .zet directory!");
-            return Err(Error::CollectionNotFoundError);
+            return Err(eyre!("collection not found!"));
         } else {
             return Ok(dir);
         }
@@ -35,14 +36,14 @@ pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
             Some(p) => p.to_owned(),
             None => {
                 log::error!("{:?} had no parent!", dir);
-                return Err(Error::NoParentError);
+                return Err(eyre!("no parent found"));
             }
         }
     }
 
     if !app_work_dir(&dir).is_dir() {
         log::error!("no .zet directory found");
-        return Err(Error::CollectionNotFoundError);
+        return Err(eyre!("collection not found!"));
     }
     log::debug!("zet root directory resolved to {:?}", dir);
 

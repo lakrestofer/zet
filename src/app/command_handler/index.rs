@@ -4,6 +4,7 @@ use color_eyre::eyre::eyre;
 use rusqlite::{params, params_from_iter};
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
+use zet::preamble::*;
 use zet::{
     config::Config,
     core::{
