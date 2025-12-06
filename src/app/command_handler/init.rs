@@ -2,7 +2,7 @@ use color_eyre::eyre::eyre;
 use normalize_path::NormalizePath;
 use resolve_path::PathResolveExt;
 use std::path::PathBuf;
-use zet::core::paths::{app_work_dir, db_dir};
+use zet::core::{app_work_dir, db_dir};
 use zet::preamble::*;
 
 pub fn handle_command(root: Option<PathBuf>, force: bool) -> Result<()> {

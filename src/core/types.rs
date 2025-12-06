@@ -23,6 +23,7 @@ pub struct CreatedTimestamp(pub OffsetDateTime);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
     pub id: DocumentId,
+    pub title: String,
     pub path: DocumentPath,
     pub hash: u32,
     pub modified: ModifiedTimestamp,
@@ -51,6 +52,7 @@ pub struct DocumentPath(pub PathBuf);
 impl Document {
     pub fn new(
         id: DocumentId,
+        title: String,
         path: DocumentPath,
         hash: u32,
         modified: ModifiedTimestamp,
@@ -59,6 +61,7 @@ impl Document {
     ) -> Self {
         Self {
             id,
+            title,
             path,
             hash,
             modified,
@@ -188,11 +191,11 @@ impl From<JsonData> for Value {
 
 impl DbCrud<Document, DocumentId> for Document {
     fn list(db: &rusqlite::Connection) -> Result<Vec<Document>> {
-        db
-            .prepare(sql!(
-                r#"
+        db.prepare(sql!(
+            r#"
                 select
                     id,
+                    title,
                     path,
                     hash,
                     modified,
@@ -201,19 +204,20 @@ impl DbCrud<Document, DocumentId> for Document {
                 from
                     document
                 "#
-            ))?
-            .query_map([], |r| {
-                Ok(Document::new(
-                    r.get(0)?,
-                    r.get(1)?,
-                    r.get(2)?,
-                    r.get(3)?,
-                    r.get(4)?,
-                    r.get(5)?,
-                ))
-            })?
-            .map(|f| f.map_err(From::from))
-            .collect::<Result<Vec<Document>>>()
+        ))?
+        .query_map([], |r| {
+            Ok(Document::new(
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+            ))
+        })?
+        .map(|f| f.map_err(From::from))
+        .collect::<Result<Vec<Document>>>()
     }
 
     fn get(db: &mut rusqlite::Connection, id: DocumentId) -> Result<Document> {
@@ -241,6 +245,7 @@ impl DbCrud<Document, DocumentId> for Document {
                     r.get(3)?,
                     r.get(4)?,
                     r.get(5)?,
+                    r.get(6)?,
                 ))
             })?)
     }
@@ -287,9 +292,8 @@ impl DbCrud<Document, DocumentId> for Document {
 
 impl DbCrud<Node, i64> for Node {
     fn list(db: &rusqlite::Connection) -> Result<Vec<Node>> {
-        db
-            .prepare(sql!(
-                r#"
+        db.prepare(sql!(
+            r#"
                 select
                     id,
                     document_id,
@@ -301,19 +305,19 @@ impl DbCrud<Node, i64> for Node {
                 from
                     node
                 "#
-            ))?
-            .query_map([], |r| {
-                Ok(Node {
-                    id: r.get(0)?,
-                    document_id: r.get(1)?,
-                    node_type: r.get(2)?,
-                    range_start: r.get(3)?,
-                    range_end: r.get(4)?,
-                    data: r.get(5)?,
-                })
-            })?
-            .map(|f| f.map_err(From::from))
-            .collect::<Result<Vec<Node>>>()
+        ))?
+        .query_map([], |r| {
+            Ok(Node {
+                id: r.get(0)?,
+                document_id: r.get(1)?,
+                node_type: r.get(2)?,
+                range_start: r.get(3)?,
+                range_end: r.get(4)?,
+                data: r.get(5)?,
+            })
+        })?
+        .map(|f| f.map_err(From::from))
+        .collect::<Result<Vec<Node>>>()
     }
 
     fn get(db: &mut rusqlite::Connection, id: i64) -> Result<Node> {

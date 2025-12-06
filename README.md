@@ -5,7 +5,7 @@ markdown files as queryable databases.
 
 ## Overview
 
-Zet enables **discoverability** in plaintext markdown collections by
+Zet enables discoverability in plaintext markdown collections by
 parsing files into a transparent database cache. Query your notes for
 structural patterns ("documents with TODOs"), perform full-text
 searches, and extract structured elements (checkboxes, headings) - all

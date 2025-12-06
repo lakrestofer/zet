@@ -4,6 +4,8 @@ use std::path::Path;
 use rusqlite::params;
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
+use zet::core::path_to_id;
+use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
 use zet::preamble::*;
 use zet::{
     config::Config,
@@ -11,7 +13,7 @@ use zet::{
         db::{DB, DbCrud},
         parser::{
             FrontMatterParser,
-            ast_nodes::{self, NodeKind, Ranged},
+            ast_nodes::{self, NodeKind},
         },
         types::{
             CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp,
@@ -19,15 +21,13 @@ use zet::{
     },
 };
 
-use crate::app::preamble::*;
-
-pub fn handle_command(config: Config, force: bool) -> Result<()> {
+pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     let root = &config.root;
-    let db_path = zet::core::paths::db_dir(root);
+    let db_path = zet::core::db_dir(root);
     let mut db = DB::open(db_path)?;
 
     // we figure out which documents we need to process,reprocess and delete
-    let (new, updated, removed) = zet::core::collection::collection_status(root, &mut db);
+    let (new, updated, removed) = zet::core::collection_status(root, &mut db);
 
     log::info!(
         "collection status since last index: n_new={}, n_updated={}, n_removed={}",
@@ -68,7 +68,6 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
 
     Document::upsert(db, db_documents)?;
 
-    log::debug!("inserting document data: {:?}", db_nodes);
     for (id, nodes) in db_nodes {
         db_insert_nodes(db, id, nodes)?;
     }
@@ -178,12 +177,8 @@ fn build_db_nodes(
                 });
                 db_nodes.push((kind, range, parent, JsonData(data)));
             }
-            InlineImage(_) => {
-                db_nodes.push((kind, range, parent, Default::default()));
-            }
-            ReferenceImage(ri) => {
-                db_nodes.push((kind, range, parent, Default::default()));
-            }
+            InlineImage(_) => db_nodes.push((kind, range, parent, Default::default())),
+            ReferenceImage(_ri) => db_nodes.push((kind, range, parent, Default::default())),
             List(l) => {
                 db_nodes.push((kind, range, parent, Default::default()));
                 build_db_nodes(Some(db_nodes.len() - 1), l.children, db_nodes);
@@ -333,32 +328,37 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
     let mut document_data = Vec::new();
 
     for DocumentPath(path) in new {
-        let id = path_to_id(&config.root, path.clone());
+        let id = path_to_id(&config.root, &path);
 
         let metadata = std::fs::metadata(&path)?;
         let modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
         let created = CreatedTimestamp(metadata.created().map(From::from)?);
 
         let content = std::fs::read_to_string(&path)?;
-        let hash = zet::core::hasher::hash(&content);
+        let hash = zet::core::hash(&content);
 
-        let (frontmatter, nodes) = zet::core::parser::parse(
+        let (frontmatter, document) = zet::core::parser::parse(
             FrontMatterParser::new(config.front_matter_format),
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
         let frontmatter = frontmatter.unwrap_or(JsonData(json!("{}")));
 
+        let title = extract_title_from_frontmatter(&frontmatter)
+            .or_else(|| extract_title_from_ast(&document.children))
+            .unwrap_or("".into());
+
         document_data.push(DocumentData {
             document: Document {
                 id,
+                title,
                 path: DocumentPath(path),
                 hash,
                 modified,
                 created,
                 data: frontmatter,
             },
-            content: nodes.children,
+            content: document.children,
         })
     }
 
@@ -379,23 +379,27 @@ fn process_existing_documents(
     for (id, path, modified, created, hash) in updated {
         let content = std::fs::read_to_string(&path.0)?;
 
-        let (frontmatter, nodes) = zet::core::parser::parse(
+        let (frontmatter, document) = zet::core::parser::parse(
             FrontMatterParser::new(config.front_matter_format),
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
         let frontmatter = frontmatter.unwrap_or(JsonData(json!("{}")));
+        let title = extract_title_from_frontmatter(&frontmatter)
+            .or_else(|| extract_title_from_ast(&document.children))
+            .unwrap_or("".into());
 
         document_data.push(DocumentData {
             document: Document {
                 id,
+                title,
                 path,
                 hash,
                 modified,
                 created,
                 data: frontmatter,
             },
-            content: nodes.children,
+            content: document.children,
         })
     }
 
@@ -429,14 +433,4 @@ fn delete_nodes(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
     }
     tx.commit()?;
     Ok(())
-}
-
-fn path_to_id(root: &Path, mut path: PathBuf) -> DocumentId {
-    path.set_extension("");
-    let path = path.strip_prefix(root).unwrap();
-    DocumentId(
-        path.to_str()
-            .expect("document path did not constitute valid utf8")
-            .to_owned(),
-    )
 }

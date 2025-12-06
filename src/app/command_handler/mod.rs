@@ -12,7 +12,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
         Command::Init { root, force } => init::handle_command(root, force)?,
         command => {
             let config = zet::config::Config {
-                root: zet::core::paths::resolve_root(root)?,
+                root: zet::core::resolve_root(root)?,
                 front_matter_format: FrontMatterFormat::Toml,
             };
 

@@ -276,7 +276,7 @@ macro_rules! generate_node {
         $($node_name($node_name)),*,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub enum NodeKind {
         $($node_name),*,
     }
