@@ -1,5 +1,5 @@
 use rusqlite::{
-    ToSql, params,
+    Connection, ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,10 @@ use sql_minifier::macros::minify_sql as sql;
 use std::{path::PathBuf, str::FromStr};
 use time::OffsetDateTime;
 
-use crate::core::{db::DbCrud, parser::ast_nodes::NodeKind};
+use crate::core::{
+    db::{DbDelete, DbGet, DbInsert, DbList, DbUpdate},
+    parser::ast_nodes::NodeKind,
+};
 use crate::result::Result;
 
 #[repr(transparent)]
@@ -28,7 +31,7 @@ pub struct Document {
     pub hash: u32,
     pub modified: ModifiedTimestamp,
     pub created: CreatedTimestamp,
-    pub data: JsonData,
+    pub data: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,12 +41,12 @@ pub struct Node {
     pub node_type: NodeKind,
     pub range_start: usize,
     pub range_end: usize,
-    pub data: JsonData,
+    pub data: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[repr(transparent)]
-pub struct JsonData(pub serde_json::Value);
+// #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+// #[repr(transparent)]
+// pub struct JsonData(pub serde_json::Value);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(transparent)]
@@ -57,7 +60,7 @@ impl Document {
         hash: u32,
         modified: ModifiedTimestamp,
         created: CreatedTimestamp,
-        data: JsonData,
+        data: serde_json::Value,
     ) -> Self {
         Self {
             id,
@@ -78,7 +81,7 @@ impl Node {
         node_type: NodeKind,
         range_start: usize,
         range_end: usize,
-        data: JsonData,
+        data: serde_json::Value,
     ) -> Self {
         Self {
             id,
@@ -167,29 +170,7 @@ impl ToSql for DocumentPath {
     }
 }
 
-impl FromSql for JsonData {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s = value.as_str()?;
-        match serde_json::from_str(s) {
-            Ok(v) => Ok(JsonData(v)),
-            Err(_) => Err(FromSqlError::InvalidType),
-        }
-    }
-}
-
-impl ToSql for JsonData {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(self.0.to_string().into())
-    }
-}
-
-impl From<JsonData> for Value {
-    fn from(value: JsonData) -> Self {
-        value.0
-    }
-}
-
-impl DbCrud<Document, DocumentId> for Document {
+impl DbList<Document> for Document {
     fn list(db: &rusqlite::Connection) -> Result<Vec<Document>> {
         db.prepare(sql!(
             r#"
@@ -219,7 +200,9 @@ impl DbCrud<Document, DocumentId> for Document {
         .map(|f| f.map_err(From::from))
         .collect::<Result<Vec<Document>>>()
     }
+}
 
+impl DbGet<DocumentId, Document> for Document {
     fn get(db: &mut rusqlite::Connection, id: DocumentId) -> Result<Document> {
         Ok(db
             .prepare(sql!(
@@ -249,8 +232,41 @@ impl DbCrud<Document, DocumentId> for Document {
                 ))
             })?)
     }
+}
 
-    fn upsert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
+impl DbInsert<Document, DocumentId> for Document {
+    fn insert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
+        log::debug!("upserting {} documents", value.len());
+        let ids = Vec::with_capacity(value.len());
+        let tx = db.transaction()?;
+        {
+            let query_str = sql!(
+                r#"
+                insert into
+                    document
+                values (
+                    ?1,        -- id       (text)
+                    ?2,        -- title    (text)
+                    ?3,        -- path     (text)
+                    ?4,        -- hash     (integer)
+                    ?5,        -- modified (text)
+                    ?6,        -- created  (text)
+                    jsonb(?7)
+                );
+                "#
+            );
+            let mut query = tx.prepare(query_str)?;
+            for d in value {
+                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
+            }
+        }
+        tx.commit()?;
+        Ok(ids)
+    }
+}
+
+impl DbUpdate<Document, DocumentId> for Document {
+    fn update(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
         log::debug!("upserting {} documents", value.len());
         let ids = Vec::with_capacity(value.len());
         let tx = db.transaction()?;
@@ -284,95 +300,106 @@ impl DbCrud<Document, DocumentId> for Document {
         tx.commit()?;
         Ok(ids)
     }
-
-    fn delete(db: &mut rusqlite::Connection, ids: Vec<DocumentId>) -> Result<()> {
-        todo!()
-    }
 }
 
-impl DbCrud<Node, i64> for Node {
-    fn list(db: &rusqlite::Connection) -> Result<Vec<Node>> {
-        db.prepare(sql!(
-            r#"
-                select
-                    id,
-                    document_id,
-                    type,
-                    range_start,
-                    range_end,
-                    json(data)
-                    
-                from
-                    node
-                "#
-        ))?
-        .query_map([], |r| {
-            Ok(Node {
-                id: r.get(0)?,
-                document_id: r.get(1)?,
-                node_type: r.get(2)?,
-                range_start: r.get(3)?,
-                range_end: r.get(4)?,
-                data: r.get(5)?,
-            })
-        })?
-        .map(|f| f.map_err(From::from))
-        .collect::<Result<Vec<Node>>>()
-    }
-
-    fn get(db: &mut rusqlite::Connection, id: i64) -> Result<Node> {
-        todo!()
-    }
-
-    fn upsert(db: &mut rusqlite::Connection, nodes: Vec<Node>) -> Result<Vec<i64>> {
-        let mut ids = Vec::new();
+impl DbDelete<DocumentId> for Document {
+    fn delete(db: &mut rusqlite::Connection, ids: Vec<DocumentId>) -> Result<()> {
         let tx = db.transaction()?;
         {
-            let mut query = tx.prepare(sql!(
-                r#"
-                insert into
-                    node
-                values (
-                    ?1,        -- id          (integer)
-                    ?2,        -- document_id (text)
-                    ?3,        -- type        (text)
-                    ?4,        -- range_start (integer)
-                    ?5,        -- range_end   (integer)
-                    jsonb(?6)  -- data        (blob)
-                ) on conflict(
-                    id
-                ) do update set
-                     document_id = ?2,
-                     type        = ?3,
-                     range_start = ?4,
-                     range_end   = ?5,
-                     data        = jsonb(?6)
-                "#
-            ))?;
-            for n in nodes {
-                let id = query
-                    .query_row(
-                        params![
-                            n.id,
-                            n.document_id,
-                            n.node_type,
-                            n.range_start,
-                            n.range_end,
-                            n.data
-                        ],
-                        |r| r.get(0),
-                    )
-                    .unwrap();
-
-                ids.push(id);
+            let query_str = sql!(r#"delete from document where id = ?1"#);
+            let mut query = tx.prepare(query_str)?;
+            for id in ids {
+                query.execute(params![id])?;
             }
         }
         tx.commit()?;
-
-        Ok(ids)
-    }
-
-    fn delete(db: &mut rusqlite::Connection, ids: Vec<i64>) -> Result<()> {
-        todo!()
+        Ok(())
     }
 }
+
+// impl DbCrud<Node, i64> for Node {
+//     fn list(db: &rusqlite::Connection) -> Result<Vec<Node>> {
+//         db.prepare(sql!(
+//             r#"
+//                 select
+//                     id,
+//                     document_id,
+//                     type,
+//                     range_start,
+//                     range_end,
+//                     json(data)
+
+//                 from
+//                     node
+//                 "#
+//         ))?
+//         .query_map([], |r| {
+//             Ok(Node {
+//                 id: r.get(0)?,
+//                 document_id: r.get(1)?,
+//                 node_type: r.get(2)?,
+//                 range_start: r.get(3)?,
+//                 range_end: r.get(4)?,
+//                 data: r.get(5)?,
+//             })
+//         })?
+//         .map(|f| f.map_err(From::from))
+//         .collect::<Result<Vec<Node>>>()
+//     }
+
+//     fn get(db: &mut rusqlite::Connection, id: i64) -> Result<Node> {
+//         todo!()
+//     }
+
+//     fn upsert(db: &mut rusqlite::Connection, nodes: Vec<Node>) -> Result<Vec<i64>> {
+//         let mut ids = Vec::new();
+//         let tx = db.transaction()?;
+//         {
+//             let mut query = tx.prepare(sql!(
+//                 r#"
+//                 insert into
+//                     node
+//                 values (
+//                     ?1,        -- id          (integer)
+//                     ?2,        -- document_id (text)
+//                     ?3,        -- type        (text)
+//                     ?4,        -- range_start (integer)
+//                     ?5,        -- range_end   (integer)
+//                     jsonb(?6)  -- data        (blob)
+//                 ) on conflict(
+//                     id
+//                 ) do update set
+//                      document_id = ?2,
+//                      type        = ?3,
+//                      range_start = ?4,
+//                      range_end   = ?5,
+//                      data        = jsonb(?6)
+//                 "#
+//             ))?;
+//             for n in nodes {
+//                 let id = query
+//                     .query_row(
+//                         params![
+//                             n.id,
+//                             n.document_id,
+//                             n.node_type,
+//                             n.range_start,
+//                             n.range_end,
+//                             n.data
+//                         ],
+//                         |r| r.get(0),
+//                     )
+//                     .unwrap();
+
+//                 ids.push(id);
+//             }
+//         }
+//         tx.commit()?;
+
+//         Ok(ids)
+//     }
+
+//     fn delete(db: &mut rusqlite::Connection, ids: Vec<i64>) -> Result<()> {
+//         todo!()
+//     }
+// }

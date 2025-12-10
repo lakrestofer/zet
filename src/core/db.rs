@@ -50,13 +50,20 @@ impl DerefMut for DB {
     }
 }
 
-pub trait DbCrud<T, I> {
+pub trait DbList<T> {
     fn list(db: &Connection) -> Result<Vec<T>>;
+}
+pub trait DbGet<I, T> {
     fn get(db: &mut Connection, id: I) -> Result<T>;
-
-    fn upsert(db: &mut Connection, values: Vec<T>) -> Result<Vec<I>>;
-
-    fn delete(db: &mut Connection, ids: Vec<I>) -> Result<()>;
+}
+pub trait DbInsert<In, Out> {
+    fn insert(db: &mut Connection, values: Vec<In>) -> Result<Vec<Out>>;
+}
+pub trait DbUpdate<In, Out> {
+    fn update(db: &mut Connection, values: Vec<In>) -> Result<Vec<Out>>;
+}
+pub trait DbDelete<Id> {
+    fn delete(db: &mut Connection, ids: Vec<Id>) -> Result<()>;
 }
 
 #[cfg(test)]

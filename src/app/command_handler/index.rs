@@ -4,20 +4,19 @@ use std::path::Path;
 use rusqlite::params;
 use serde_json::json;
 use sql_minifier::macros::minify_sql as sql;
+use zet::core::db::DbUpdate;
 use zet::core::path_to_id;
 use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
 use zet::preamble::*;
 use zet::{
     config::Config,
     core::{
-        db::{DB, DbCrud},
+        db::DB,
         parser::{
             FrontMatterParser,
             ast_nodes::{self, NodeKind},
         },
-        types::{
-            CreatedTimestamp, Document, DocumentId, DocumentPath, JsonData, ModifiedTimestamp,
-        },
+        types::{CreatedTimestamp, Document, DocumentId, DocumentPath, ModifiedTimestamp},
     },
 };
 
@@ -66,7 +65,7 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
         db_documents.push(doc.document);
     }
 
-    Document::upsert(db, db_documents)?;
+    Document::update(db, db_documents)?;
 
     for (id, nodes) in db_nodes {
         db_insert_nodes(db, id, nodes)?;
@@ -78,7 +77,7 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
 fn build_db_nodes(
     parent: Option<usize>,
     nodes: Vec<ast_nodes::Node>,
-    db_nodes: &mut Vec<(NodeKind, Range<usize>, Option<usize>, JsonData)>,
+    db_nodes: &mut Vec<(NodeKind, Range<usize>, Option<usize>, serde_json::Value)>,
 ) {
     for node in nodes {
         use ast_nodes::{Node::*, *};
@@ -110,7 +109,7 @@ fn build_db_nodes(
                    "attributes": map,
                    "level": h.level
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, data));
                 build_db_nodes(Some(db_nodes.len() - 1), h.children, db_nodes);
             }
             Text(_) => {
@@ -120,26 +119,26 @@ fn build_db_nodes(
                 let data = json!({
                     "kind": td.kind,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
                 build_db_nodes(Some(db_nodes.len() - 1), td.children, db_nodes);
             }
             Html(html) => {
                 let data = json!({
                     "text": html.text,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             FootnoteReference(fr) => {
                 let data = json!({
                     "name": fr.name,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             FootnoteDefinition(fd) => {
                 let data = json!({
                     "name": fd.name,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
                 build_db_nodes(Some(db_nodes.len() - 1), fd.children, db_nodes);
             }
             InlineLink(il) => {
@@ -147,14 +146,14 @@ fn build_db_nodes(
                     "url": il.url,
                     "title": il.title,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
                 build_db_nodes(Some(db_nodes.len() - 1), il.children, db_nodes);
             }
             ReferenceLink(rl) => {
                 let data = json!({
                     "reference": rl.reference,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
                 build_db_nodes(Some(db_nodes.len() - 1), rl.children, db_nodes);
             }
             ShortcutLink(sl) => {
@@ -175,7 +174,7 @@ fn build_db_nodes(
                     "link": lr.link,
                     "title": lr.title,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             InlineImage(_) => db_nodes.push((kind, range, parent, Default::default())),
             ReferenceImage(_ri) => db_nodes.push((kind, range, parent, Default::default())),
@@ -191,20 +190,20 @@ fn build_db_nodes(
             }
             TaskListMarker(tlm) => {
                 let data = json!({"checked": tlm.is_checked});
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
                 // let id = db_nodes.len() - 1;
                 // build_db_nodes(Some(id), ltm., db_nodes);
             }
             Code(code) => {
                 let data = json!({"code": code.code});
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             CodeBlock(cb) => {
                 let data = json!({
                     "tag": cb.tag,
                     "is_fenced": cb.is_fenced,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
                 build_db_nodes(Some(db_nodes.len() - 1), cb.children, db_nodes);
             }
             HorizontalRule(_) => db_nodes.push((kind, range, parent, Default::default())),
@@ -213,19 +212,19 @@ fn build_db_nodes(
                     "header": table.header,
                     "rows": table.rows,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             DisplayMath(dm) => {
                 let data = json!({
                     "text": dm.text,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             InlineMath(im) => {
                 let data = json!({
                     "text": im.text,
                 });
-                db_nodes.push((kind, range, parent, JsonData(data)));
+                db_nodes.push((kind, range, parent, (data)));
             }
             TableHead(_) | TableRow(_) | TableCell(_) => {
                 panic!("should not be able to reach this!")
@@ -342,7 +341,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
-        let frontmatter = frontmatter.unwrap_or(JsonData(json!("{}")));
+        let frontmatter = frontmatter.unwrap_or((json!("{}")));
 
         let title = extract_title_from_frontmatter(&frontmatter)
             .or_else(|| extract_title_from_ast(&document.children))
@@ -384,7 +383,7 @@ fn process_existing_documents(
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
-        let frontmatter = frontmatter.unwrap_or(JsonData(json!("{}")));
+        let frontmatter = frontmatter.unwrap_or((json!("{}")));
         let title = extract_title_from_frontmatter(&frontmatter)
             .or_else(|| extract_title_from_ast(&document.children))
             .unwrap_or("".into());

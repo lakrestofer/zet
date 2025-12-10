@@ -5,18 +5,14 @@ pub mod types;
 
 use sql_minifier::macros::minify_sql as sql;
 
-use crate::core::{
-    parser::ast_nodes::{self, NodeKind},
-    types::JsonData,
-};
+use crate::core::parser::ast_nodes::{self, NodeKind};
 
-use crate::core::db::DB;
+use crate::core::db::{DB, DbList};
 use crate::core::types::DocumentId;
 use crate::preamble::*;
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::core::db::DbCrud;
 use crate::core::types::CreatedTimestamp;
 use crate::core::types::Document;
 use crate::core::types::DocumentPath;
@@ -256,8 +252,7 @@ pub fn path_to_id(root: &Path, path: &Path) -> DocumentId {
 
 pub const TITLE_KEY: &'static str = "title";
 
-pub fn extract_title_from_frontmatter(data: &JsonData) -> Option<String> {
-    let JsonData(data) = data;
+pub fn extract_title_from_frontmatter(data: &serde_json::Value) -> Option<String> {
     let res = data.get("title")?;
 
     if let serde_json::Value::String(s) = res {

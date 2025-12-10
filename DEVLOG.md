@@ -1,6 +1,7 @@
 # Devlog
 
-This document contains a log of my current train of thought
+This document contains an append only log documenting my work on this
+tool.
 
 ## 06 Saturday
 

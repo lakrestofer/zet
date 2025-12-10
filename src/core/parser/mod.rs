@@ -1,6 +1,5 @@
 pub mod ast_nodes;
 
-use crate::core::types::JsonData;
 use crate::preamble::*;
 
 use crate::core::parser::ast_nodes::{Heading, *};
@@ -34,7 +33,7 @@ pub fn parse(
     frontmatter_parser: FrontMatterParser,
     document_parser: DocumentParser,
     document: String,
-) -> Result<(Option<JsonData>, Document)> {
+) -> Result<(Option<serde_json::Value>, Document)> {
     let (frontmatter, content) = frontmatter_parser.parse(document);
 
     let events = document_parser.parse(content)?;
@@ -73,13 +72,13 @@ impl FrontMatterParser {
         }
     }
 
-    pub fn parse(&self, content: String) -> (Option<JsonData>, String) {
+    pub fn parse(&self, content: String) -> (Option<serde_json::Value>, String) {
         let result = match self {
             FrontMatterParser::TomlParser(matter) => matter.parse(&content),
             FrontMatterParser::JsonParser(matter) => matter.parse(&content),
             FrontMatterParser::YamlParser(matter) => matter.parse(&content),
         };
-        ((result.data.map(|p| JsonData(p.into()))), result.content)
+        ((result.data.map(|p| p.into())), result.content)
     }
 }
 

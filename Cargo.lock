@@ -613,6 +613,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmespath"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f40cd1816d6f52b8c97bfd9bfca82af01653ecbf53a5d341968cc4cfeb65c0c"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slug",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -935,6 +946,7 @@ dependencies = [
  "fallible-streaming-iterator",
  "hashlink 0.10.0",
  "libsqlite3-sys",
+ "serde_json",
  "smallvec",
  "time",
  "uuid",
@@ -1056,6 +1068,16 @@ name = "similar"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
+name = "slug"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "882a80f72ee45de3cc9a5afeb2da0331d58df69e4e7d8eeb5d3c7784ae67e724"
+dependencies = [
+ "deunicode",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "smallvec"
@@ -1598,6 +1620,7 @@ dependencies = [
  "gray_matter",
  "ignore",
  "insta",
+ "jmespath",
  "log",
  "normalize-path",
  "optfield",

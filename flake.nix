@@ -5,6 +5,11 @@
     devenv.url = "github:cachix/devenv";
     devenv.inputs.nixpkgs.follows = "nixpkgs";
     serena.url = "github:oraios/serena";
+
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs = {
+      nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -64,7 +69,7 @@
 
                 languages.rust = {
                   enable = true;
-                  channel = "nixpkgs";
+                  channel = "nightly";
                   components = [
                     "rustc"
                     "cargo"
