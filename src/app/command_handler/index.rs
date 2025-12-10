@@ -1,5 +1,4 @@
 use std::ops::Range;
-use std::path::Path;
 
 use rusqlite::params;
 use serde_json::json;
@@ -26,7 +25,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     let mut db = DB::open(db_path)?;
 
     // we figure out which documents we need to process,reprocess and delete
-    let (new, updated, removed) = zet::core::collection_status(root, &mut db);
+    let (new, updated, removed) = zet::core::collection_status(root, &db);
 
     log::info!(
         "collection status since last index: n_new={}, n_updated={}, n_removed={}",
@@ -341,7 +340,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
-        let frontmatter = frontmatter.unwrap_or((json!("{}")));
+        let frontmatter = frontmatter.unwrap_or(json!("{}") );
 
         let title = extract_title_from_frontmatter(&frontmatter)
             .or_else(|| extract_title_from_ast(&document.children))
@@ -383,7 +382,7 @@ fn process_existing_documents(
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
-        let frontmatter = frontmatter.unwrap_or((json!("{}")));
+        let frontmatter = frontmatter.unwrap_or(json!("{}") );
         let title = extract_title_from_frontmatter(&frontmatter)
             .or_else(|| extract_title_from_ast(&document.children))
             .unwrap_or("".into());

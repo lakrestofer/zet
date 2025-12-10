@@ -25,7 +25,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
                 Command::RawQuery { query } => raw_query::handle_command(config, query)?,
                 Command::Lsp => todo!(),
                 Command::Format => todo!(),
-                Command::Init { root, force } => todo!(),
+                Command::Init { root: _, force: _ } => todo!(),
             }
         }
     }

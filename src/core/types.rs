@@ -1,9 +1,8 @@
 use rusqlite::{
-    Connection, ToSql, params,
+    ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sql_minifier::macros::minify_sql as sql;
 use std::{path::PathBuf, str::FromStr};
 use time::OffsetDateTime;

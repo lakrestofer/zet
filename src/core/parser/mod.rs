@@ -175,7 +175,7 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
     }
 }
 
-fn parse_text(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+fn parse_text(cow: CowStr<'_>, range: Range<usize>, _iter: &mut ParserIterator<'_>) -> Result<Node> {
     Ok(Text {
         text: cow.to_string(),
         range,
@@ -186,7 +186,7 @@ fn parse_text(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_
 fn parse_display_math(
     text: CowStr<'_>,
     range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
+    _iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
     Ok(DisplayMath {
         range,
@@ -198,7 +198,7 @@ fn parse_display_math(
 fn parse_inline_math(
     cow: CowStr<'_>,
     range: Range<usize>,
-    iter: &mut ParserIterator<'_>,
+    _iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
     Ok(InlineMath {
         range,
@@ -207,7 +207,7 @@ fn parse_inline_math(
     .into())
 }
 
-fn parse_code(cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
+fn parse_code(_cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut raw_text = &iter.text[range.clone()];
     while raw_text.starts_with("`") && raw_text.ends_with("`") {
         raw_text = &raw_text[1..(raw_text.len() - 1)];
@@ -261,9 +261,9 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
 
 fn parse_image(
     link_type: LinkType,
-    dest_url: CowStr<'_>,
-    title: CowStr<'_>,
-    id: CowStr<'_>,
+    _dest_url: CowStr<'_>,
+    _title: CowStr<'_>,
+    _id: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
@@ -287,7 +287,7 @@ fn parse_link(
     link_type: LinkType,
     dest_url: CowStr<'_>,
     title: CowStr<'_>,
-    id: CowStr<'_>,
+    _id: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
