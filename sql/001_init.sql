@@ -13,7 +13,7 @@ create table document (
     hash        integer not null,        -- file hash, used to detect file changes
     modified    text    not null,        -- file modified timestamp, used to detect file changes
     created     text    not null,        -- file created timestamp
-    frontmatter blob not null            -- frontmatter data. jsonb encoded json <https://sqlite.org/json1.html#jsonb>. Use the jsonb() function when inserting and reading from this table
+    frontmatter blob                     -- frontmatter data. jsonb encoded json <https://sqlite.org/json1.html#jsonb>. Use the jsonb() function when inserting and reading from this table
 ) strict;
 
 -- -- to make suffix match on the id and title fields fast, we add a virtual table
@@ -43,8 +43,6 @@ create table document (
 --     );
 -- end;
 
-
-
 -- create trigger document_fts5_after_delete after delete on document begin
 --     delete from document_id_title_index where rowid = old.rowid;
 -- end;
@@ -59,6 +57,6 @@ create table node (
     type        text    not null,
     range_start integer not null,
     range_end   integer not null,
-    data        blob    not null, -- jsonb encoded data. Dependend on the node type
+    data        blob, -- jsonb encoded data. Dependend on the node type
     foreign key(document_id) references document(id) on delete cascade
 ) strict;

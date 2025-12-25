@@ -1,21 +1,45 @@
+use crate::core::{
+    db::{DbDelete, DbGet, DbInsert, DbList, DbUpdate},
+    parser::ast_nodes::NodeKind,
+};
+use std::{path::PathBuf, str::FromStr};
+
+use crate::result::Result;
 use rusqlite::{
     ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
-use sql_minifier::macros::minify_sql as sql;
-use std::{path::PathBuf, str::FromStr};
 use time::OffsetDateTime;
 
-use crate::core::{
-    db::{DbDelete, DbGet, DbInsert, DbList, DbUpdate},
-    parser::ast_nodes::NodeKind,
-};
-use crate::result::Result;
+use sql_minifier::macros::minify_sql as sql;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct DocumentPath(pub PathBuf);
+
+impl From<String> for DocumentId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentId(pub String);
+
+impl FromSql for DocumentId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let s: String = value.as_str()?.to_owned();
+        Ok(DocumentId(s))
+    }
+}
+
+impl ToSql for DocumentId {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(self.0.to_owned().into())
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModifiedTimestamp(pub OffsetDateTime);
@@ -32,24 +56,6 @@ pub struct Document {
     pub created: CreatedTimestamp,
     pub data: serde_json::Value,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Node {
-    pub id: i64,
-    pub document_id: DocumentId,
-    pub node_type: NodeKind,
-    pub range_start: usize,
-    pub range_end: usize,
-    pub data: serde_json::Value,
-}
-
-// #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-// #[repr(transparent)]
-// pub struct JsonData(pub serde_json::Value);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct DocumentPath(pub PathBuf);
 
 impl Document {
     pub fn new(
@@ -73,59 +79,152 @@ impl Document {
     }
 }
 
-impl Node {
-    pub fn new(
-        id: i64,
-        document_id: DocumentId,
-        node_type: NodeKind,
-        range_start: usize,
-        range_end: usize,
-        data: serde_json::Value,
-    ) -> Self {
-        Self {
-            id,
-            document_id,
-            node_type,
-            range_start,
-            range_end,
-            data,
+impl DbList<Document> for Document {
+    fn list(db: &rusqlite::Connection) -> Result<Vec<Document>> {
+        db.prepare(sql!(
+            r#"
+                select
+                    id,
+                    title,
+                    path,
+                    hash,
+                    modified,
+                    created,
+                    json(frontmatter) as frontmatter
+                from
+                    document
+                "#
+        ))?
+        .query_map([], |r| {
+            Ok(Document::new(
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+            ))
+        })?
+        .map(|f| f.map_err(From::from))
+        .collect::<Result<Vec<Document>>>()
+    }
+}
+impl DbGet<DocumentId, Document> for Document {
+    fn get(db: &mut rusqlite::Connection, id: DocumentId) -> Result<Document> {
+        Ok(db
+            .prepare(sql!(
+                r#"
+            select
+                id,
+                path,
+                hash,
+                modified,
+                created,
+                json(frontmatter) as frontmatter
+            from
+                document
+            where
+                id = ?
+        "#
+            ))?
+            .query_row([id], |r| {
+                Ok(Document::new(
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            })?)
+    }
+}
+
+impl DbInsert<Document, DocumentId> for Document {
+    fn insert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
+        log::debug!("inserting {} documents", value.len());
+        let ids = Vec::with_capacity(value.len());
+        let tx = db.transaction()?;
+        {
+            let query_str = sql!(
+                r#"
+                insert into
+                    document
+                values (
+                    ?1,        -- id       (text)
+                    ?2,        -- title    (text)
+                    ?3,        -- path     (text)
+                    ?4,        -- hash     (integer)
+                    ?5,        -- modified (text)
+                    ?6,        -- created  (text)
+                    jsonb(?7)
+                );
+                "#
+            );
+            let mut query = tx.prepare(query_str)?;
+
+            for d in value {
+                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
+            }
         }
+        tx.commit()?;
+        Ok(ids)
     }
 }
 
-impl From<String> for DocumentId {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-impl FromSql for NodeKind {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let str_value = value.as_str()?;
-        let value = serde_json::from_str(str_value).map_err(|_| FromSqlError::InvalidType)?;
-        Ok(value)
-    }
-}
-
-impl ToSql for NodeKind {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        match serde_json::to_string(self) {
-            Ok(str) => Ok(str.into()),
-            Err(_) => panic!("Could not serialize NodeKind as string"),
+impl DbUpdate<Document, DocumentId> for Document {
+    fn update(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
+        log::debug!("upserting {} documents", value.len());
+        let ids = Vec::with_capacity(value.len());
+        let tx = db.transaction()?;
+        {
+            let query_str = sql!(
+                r#"
+                insert into
+                    document
+                values (
+                    ?1,        -- id       (text)
+                    ?2,        -- title    (text)
+                    ?3,        -- path     (text)
+                    ?4,        -- hash     (integer)
+                    ?5,        -- modified (text)
+                    ?6,        -- created  (text)
+                    jsonb(?7)
+                ) on conflict(
+                    id
+                ) do update set
+                    title       = ?2,
+                    path        = ?3,
+                    hash        = ?4,
+                    modified    = ?5,
+                    created     = ?6,
+                    frontmatter = jsonb(?7)                    
+                "#
+            );
+            let mut query = tx.prepare(query_str)?;
+            for d in value {
+                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
+            }
         }
+        tx.commit()?;
+        Ok(ids)
     }
 }
 
-impl FromSql for DocumentId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s: String = value.as_str()?.to_owned();
-        Ok(DocumentId(s))
-    }
-}
-
-impl ToSql for DocumentId {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(self.0.to_owned().into())
+impl DbDelete<DocumentId> for Document {
+    fn delete(db: &mut rusqlite::Connection, ids: Vec<DocumentId>) -> Result<()> {
+        let tx = db.transaction()?;
+        {
+            let query_str = sql!(r#"delete from document where id = ?1"#);
+            let mut query = tx.prepare(query_str)?;
+            for id in ids {
+                query.execute(params![id])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
     }
 }
 
@@ -166,152 +265,5 @@ impl From<DocumentPath> for PathBuf {
 impl ToSql for DocumentPath {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(self.0.to_string_lossy().into_owned().into())
-    }
-}
-
-impl DbList<Document> for Document {
-    fn list(db: &rusqlite::Connection) -> Result<Vec<Document>> {
-        db.prepare(sql!(
-            r#"
-                select
-                    id,
-                    title,
-                    path,
-                    hash,
-                    modified,
-                    created,
-                    json(frontmatter) as frontmatter
-                from
-                    document
-                "#
-        ))?
-        .query_map([], |r| {
-            Ok(Document::new(
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get(3)?,
-                r.get(4)?,
-                r.get(5)?,
-                r.get(6)?,
-            ))
-        })?
-        .map(|f| f.map_err(From::from))
-        .collect::<Result<Vec<Document>>>()
-    }
-}
-
-impl DbGet<DocumentId, Document> for Document {
-    fn get(db: &mut rusqlite::Connection, id: DocumentId) -> Result<Document> {
-        Ok(db
-            .prepare(sql!(
-                r#"
-            select
-                id,
-                path,
-                hash,
-                modified,
-                created,
-                json(frontmatter) as frontmatter
-            from
-                document
-            where
-                id = ?
-        "#
-            ))?
-            .query_row([id], |r| {
-                Ok(Document::new(
-                    r.get(0)?,
-                    r.get(1)?,
-                    r.get(2)?,
-                    r.get(3)?,
-                    r.get(4)?,
-                    r.get(5)?,
-                    r.get(6)?,
-                ))
-            })?)
-    }
-}
-
-impl DbInsert<Document, DocumentId> for Document {
-    fn insert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
-        log::debug!("upserting {} documents", value.len());
-        let ids = Vec::with_capacity(value.len());
-        let tx = db.transaction()?;
-        {
-            let query_str = sql!(
-                r#"
-                insert into
-                    document
-                values (
-                    ?1,        -- id       (text)
-                    ?2,        -- title    (text)
-                    ?3,        -- path     (text)
-                    ?4,        -- hash     (integer)
-                    ?5,        -- modified (text)
-                    ?6,        -- created  (text)
-                    jsonb(?7)
-                );
-                "#
-            );
-            let mut query = tx.prepare(query_str)?;
-            for d in value {
-                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
-            }
-        }
-        tx.commit()?;
-        Ok(ids)
-    }
-}
-
-impl DbUpdate<Document, DocumentId> for Document {
-    fn update(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
-        log::debug!("upserting {} documents", value.len());
-        let ids = Vec::with_capacity(value.len());
-        let tx = db.transaction()?;
-        {
-            let query_str = sql!(
-                r#"
-                insert into
-                    document
-                values (
-                    ?1,        -- id       (text)
-                    ?2,        -- path     (text)
-                    ?3,        -- hash     (integer)
-                    ?4,        -- modified (text)
-                    ?5,        -- created  (text)
-                    jsonb(?6)
-                ) on conflict(
-                    id
-                ) do update set
-                    path        = ?2,
-                    hash        = ?3,
-                    modified    = ?4,
-                    created     = ?5,
-                    frontmatter = jsonb(?6)                    
-                "#
-            );
-            let mut query = tx.prepare(query_str)?;
-            for d in value {
-                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
-            }
-        }
-        tx.commit()?;
-        Ok(ids)
-    }
-}
-
-impl DbDelete<DocumentId> for Document {
-    fn delete(db: &mut rusqlite::Connection, ids: Vec<DocumentId>) -> Result<()> {
-        let tx = db.transaction()?;
-        {
-            let query_str = sql!(r#"delete from document where id = ?1"#);
-            let mut query = tx.prepare(query_str)?;
-            for id in ids {
-                query.execute(params![id])?;
-            }
-        }
-        tx.commit()?;
-        Ok(())
     }
 }

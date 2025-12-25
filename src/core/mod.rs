@@ -3,19 +3,18 @@ pub mod parser;
 pub mod slug;
 pub mod types;
 
-
 use crate::core::parser::ast_nodes::{self};
 
 use crate::core::db::{DB, DbList};
-use crate::core::types::DocumentId;
+use crate::core::types::document::DocumentId;
 use crate::preamble::*;
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::core::types::CreatedTimestamp;
-use crate::core::types::Document;
-use crate::core::types::DocumentPath;
-use crate::core::types::ModifiedTimestamp;
+use crate::core::types::document::CreatedTimestamp;
+use crate::core::types::document::Document;
+use crate::core::types::document::DocumentPath;
+use crate::core::types::document::ModifiedTimestamp;
 // use ignore::{DirEntry, WalkBuilder};
 use std::collections::HashSet;
 

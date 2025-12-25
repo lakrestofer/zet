@@ -38,10 +38,12 @@ pub fn parse(
 
     let events = document_parser.parse(content)?;
 
-    let events_json =
-        serde_json::to_string_pretty(&events).map_err(|_| eyre!("could not convert to json"))?;
+    if log::log_enabled!(log::Level::Debug) {
+        let events_json = serde_json::to_string_pretty(&events)
+            .map_err(|_| eyre!("could not convert to json"))?;
 
-    log::debug!("{}", events_json);
+        log::debug!("{}", events_json);
+    }
 
     Ok((frontmatter, events))
 }
@@ -175,7 +177,11 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
     }
 }
 
-fn parse_text(cow: CowStr<'_>, range: Range<usize>, _iter: &mut ParserIterator<'_>) -> Result<Node> {
+fn parse_text(
+    cow: CowStr<'_>,
+    range: Range<usize>,
+    _iter: &mut ParserIterator<'_>,
+) -> Result<Node> {
     Ok(Text {
         text: cow.to_string(),
         range,
@@ -183,31 +189,11 @@ fn parse_text(cow: CowStr<'_>, range: Range<usize>, _iter: &mut ParserIterator<'
     .into())
 }
 
-fn parse_display_math(
-    text: CowStr<'_>,
+fn parse_code(
+    _cow: CowStr<'_>,
     range: Range<usize>,
-    _iter: &mut ParserIterator<'_>,
+    iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    Ok(DisplayMath {
-        range,
-        text: text.into_string(),
-    }
-    .into())
-}
-
-fn parse_inline_math(
-    cow: CowStr<'_>,
-    range: Range<usize>,
-    _iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    Ok(InlineMath {
-        range,
-        text: cow.into_string(),
-    }
-    .into())
-}
-
-fn parse_code(_cow: CowStr<'_>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut raw_text = &iter.text[range.clone()];
     while raw_text.starts_with("`") && raw_text.ends_with("`") {
         raw_text = &raw_text[1..(raw_text.len() - 1)];

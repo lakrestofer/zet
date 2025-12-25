@@ -14,6 +14,9 @@ pub mod argument_parser {
         /// If no such directory could be found, zet will look in user data
         #[arg(long)]
         pub root: Option<PathBuf>,
+        #[arg(long)]
+        /// Set the logging leven of the application
+        pub level: Option<crate::app::LogLevel>,
         #[command(subcommand)]
         pub command: crate::app::commands::Command,
     }

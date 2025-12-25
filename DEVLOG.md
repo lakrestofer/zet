@@ -15,3 +15,13 @@ tool.
     - for the lsp some in-memory datastructure might be better (as
       long as it is memory efficient).
   - I shall now continue on the "Raw query" instead
+
+## 25 Thursday
+
+- 18:41
+  - while starting on the raw query part I found an issue
+    - a rather simple way to implement a raw query is to simply pass
+      the query directly to the db and then iterate over every column
+      returned and parse it using `serde_json`.
+  - this makes me consider if I should even have a raw query
+    functionality.

@@ -1,8 +1,7 @@
-use std::ops::Range;
-
-use rusqlite::params;
-use serde_json::json;
+use rusqlite::{params, params_from_iter};
+use serde_json::{Value, json};
 use sql_minifier::macros::minify_sql as sql;
+use std::ops::Range;
 use zet::core::db::DbUpdate;
 use zet::core::path_to_id;
 use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
@@ -15,7 +14,9 @@ use zet::{
             FrontMatterParser,
             ast_nodes::{self, NodeKind},
         },
-        types::{CreatedTimestamp, Document, DocumentId, DocumentPath, ModifiedTimestamp},
+        types::document::{
+            CreatedTimestamp, Document, DocumentId, DocumentPath, ModifiedTimestamp,
+        },
     },
 };
 
@@ -282,7 +283,13 @@ fn db_insert_nodes(
         for (node_kind, range, _, json_data) in db_nodes.iter() {
             let Range { start, end } = range;
             let id: i64 = query.query_row(
-                params![document_id, node_kind, start, end, json_data],
+                params_from_iter([
+                    serde_json::to_value(&document_id)?,
+                    serde_json::to_value(node_kind)?,
+                    serde_json::to_value(start)?,
+                    serde_json::to_value(end)?,
+                    serde_json::to_value(json_data)?,
+                ]),
                 |r| r.get(0),
             )?;
             ids.push(id);
@@ -340,7 +347,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
-        let frontmatter = frontmatter.unwrap_or(json!("{}") );
+        let frontmatter = frontmatter.unwrap_or(serde_json::Value::Null);
 
         let title = extract_title_from_frontmatter(&frontmatter)
             .or_else(|| extract_title_from_ast(&document.children))
@@ -365,10 +372,10 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
 fn process_existing_documents(
     config: &Config,
     updated: Vec<(
-        zet::core::types::DocumentId,
+        zet::core::types::document::DocumentId,
         DocumentPath,
-        zet::core::types::ModifiedTimestamp,
-        zet::core::types::CreatedTimestamp,
+        zet::core::types::document::ModifiedTimestamp,
+        zet::core::types::document::CreatedTimestamp,
         u32,
     )>,
 ) -> Result<Vec<DocumentData>> {
@@ -382,7 +389,7 @@ fn process_existing_documents(
             zet::core::parser::DocumentParser::new(),
             content,
         )?;
-        let frontmatter = frontmatter.unwrap_or(json!("{}") );
+        let frontmatter = frontmatter.unwrap_or(Value::Null);
         let title = extract_title_from_frontmatter(&frontmatter)
             .or_else(|| extract_title_from_ast(&document.children))
             .unwrap_or("".into());

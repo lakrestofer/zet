@@ -69,6 +69,7 @@ pub trait DbDelete<Id> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use sql_minifier::macros::minify_sql as sql;
 
     #[test]
     pub fn init() -> Result<()> {

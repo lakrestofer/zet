@@ -15,6 +15,10 @@ fn disallow_non_selects_authorizer<'r>(ctx: AuthContext<'r>) -> Authorization {
             column_name: _,
         } => Authorization::Allow,
         rusqlite::hooks::AuthAction::Function { function_name: _ } => Authorization::Allow,
+        rusqlite::hooks::AuthAction::Pragma {
+            pragma_name: _,
+            pragma_value: _,
+        } => Authorization::Allow,
         _ => Authorization::Deny,
     }
 }
@@ -27,23 +31,41 @@ pub fn handle_command(config: Config, query: String) -> Result<()> {
 
     db.authorizer(Some(disallow_non_selects_authorizer));
 
-    let mut query = db.prepare(&query)?;
+    let res = {
+        let mut query = db.prepare(&query)?;
 
-    let columns: Vec<String> = query.column_names().iter().map(|&s| s.to_owned()).collect();
+        let columns: Vec<String> = query.column_names().iter().map(|&s| s.to_owned()).collect();
 
-    let res: Vec<serde_json::Value> = query
-        .query_map([], |r| {
-            let mut res = Map::new();
+        let res: Vec<serde_json::Value> = query
+            .query_map([], |r| {
+                let mut res = Map::new();
 
-            for (i, col) in columns.iter().enumerate() {
-                let val: Value = r.get(i)?;
-                res.insert((*col).to_owned(), val);
-            }
+                // TODO figure out how this should work
+                // for (i, col) in columns.iter().enumerate() {
+                //     let str_val = r.get_ref(i)?.data_type();
+                //     log::debug!("query result type: {} {:?}", i, str_val);
+                // }
+                // for (i, col) in columns.iter().enumerate() {
 
-            Ok(Value::Object(res))
-        })?
-        .map(|f| f.map_err(From::from))
-        .collect::<Result<Vec<serde_json::Value>>>()?;
+                //     let value = r.get_ref(i)?;
+                //     match (value.data_type()) {
+
+                //     }
+
+                //     let val = r.get::<usize, serde_json::Value>(i)?;
+                //     res.insert((*col).to_owned(), val);
+                // }
+
+                Ok(Value::Object(res))
+            })?
+            .map(|f| f.map_err(From::from))
+            .collect::<Result<Vec<serde_json::Value>>>()?;
+
+        // disable auth again
+        db.authorizer::<fn(AuthContext<'_>) -> Authorization>(None);
+
+        res
+    };
 
     let res = Value::Array(res);
 

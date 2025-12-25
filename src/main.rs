@@ -9,8 +9,12 @@ fn main() -> Result<()> {
 
     let cli = ArgumentParser::parse();
 
-    let env = Env::new().filter_or("RUST_LOG", "info");
-    env_logger::init_from_env(env);
+    if let Some(level) = cli.level {
+        env_logger::builder().filter_level(level.into()).init();
+    } else {
+        let env = Env::new().filter_or("RUST_LOG", "info");
+        env_logger::init_from_env(env);
+    }
 
     app::command_handler::handle_command(cli.command, cli.root)?;
 

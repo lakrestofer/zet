@@ -5,6 +5,43 @@ considered during the development of zet. They are listed in the order
 that they have come up during development. If they had a solution that
 is included as well.
 
+## How to store data given that we must be able to construct dynamic queries.
+
+Since we want to support the ability to perform arbitrary queries that
+should return data in json format, we need any field of any column of
+any table to be interpretable as json. This means that we should only
+ever read and write columns to the db that are serialized by the
+serde_json crate.
+
+To understand this issue, consider this table describing the
+conversion, retrieved from the `serde_json` module of the `rusqlite`
+crate.
+
+```
+/// Deserialize SQLite value to JSON `Value`:
+///
+/// | SQLite     | JSON    |
+/// |------------|---------|
+/// | NULL       | Null    |
+/// | 'null'     | Null    |
+/// | 'true'     | Bool    |
+/// | 1          | Number  |
+/// | 0.1        | Number  |
+/// | '"text"'   | String  |
+/// | 'text'     | _Error_ |
+/// | '[0, 1]'   | Array   |
+/// | '{"x": 1}' | Object  |
+```
+
+This means that we cannot use any of our own serialization code if we
+ever want the target type of `r.get(...)?` to be a
+`serde_json::Value`. **If we were to write a string directly to a
+field, it would not include the required quotation marks, and
+therefore not be interpretable as a valid json string**.
+
+A way to solve this issue could be to have any dynamic query be aware
+of what fields we are accessing. This feels more complex though.
+
 ## Resolve ID
 
 How to generate an ID from the markdown files themselves? Should be no
