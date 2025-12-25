@@ -34,11 +34,11 @@ pub fn handle_command(config: Config, query: String) -> Result<()> {
     let res = {
         let mut query = db.prepare(&query)?;
 
-        let columns: Vec<String> = query.column_names().iter().map(|&s| s.to_owned()).collect();
+        let _columns: Vec<String> = query.column_names().iter().map(|&s| s.to_owned()).collect();
 
         let res: Vec<serde_json::Value> = query
-            .query_map([], |r| {
-                let mut res = Map::new();
+            .query_map([], |_r| {
+                let res = Map::new();
 
                 // TODO figure out how this should work
                 // for (i, col) in columns.iter().enumerate() {
