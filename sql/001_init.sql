@@ -42,4 +42,5 @@ create table node (
     range_end   integer not null,
     data        blob, -- jsonb encoded data. Dependend on the node type
     foreign key(document_id) references document(id) on delete cascade
+    foreign key(parent_id) references node(id) on delete cascade
 ) strict;

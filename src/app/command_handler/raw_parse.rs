@@ -1,12 +1,16 @@
 use std::io::BufWriter;
 use std::io::Write;
 
+use pulldown_cmark::Parser;
+use zet::core::parser::DocumentParser;
 use zet::core::parser::FrontMatterFormat;
 use zet::{config::Config, core::parser::FrontMatterParser};
 
 use crate::app::preamble::*;
 use zet::preamble::*;
 
+/// Instead of producing an ast, this command simply outputs the event stream as
+/// returned by pulldown_cmark
 pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> Result<()> {
     log::debug!("parsing {:?}", path);
 
@@ -15,19 +19,16 @@ pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> 
 
     let document = std::fs::read_to_string(path)?;
 
-    let (frontmatter, content) =
-        zet::core::parser::parse(frontmatter_parser, content_parser, document)?;
+    let (frontmatter, content) = frontmatter_parser.parse(document);
 
-    let frontmatter = serde_json::to_value(frontmatter)?;
-    let content = serde_json::to_value(content)?;
-    let mut res = serde_json::Map::new();
-    res.insert("frontmatter".into(), frontmatter);
-    res.insert("content".into(), content);
-
-    let res = serde_json::to_string(&res)?;
+    let options = DocumentParser::default().options;
+    let mut parser = Parser::new_ext(&content, options).into_offset_iter();
 
     let mut out = BufWriter::new(std::io::stdout());
-    write!(out, "{}", res)?;
+
+    while let Some((event, range)) = parser.next() {
+        write!(out, "{:?}: {:?}\n", range, event)?;
+    }
 
     Ok(())
 }

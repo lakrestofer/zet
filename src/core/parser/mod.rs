@@ -3,6 +3,7 @@ pub mod ast_nodes;
 use crate::preamble::*;
 
 use crate::core::parser::ast_nodes::{Heading, *};
+use clap::ValueEnum;
 use color_eyre::eyre::eyre;
 use gray_matter::{
     Matter,
@@ -48,13 +49,13 @@ pub fn parse(
     Ok((frontmatter, events))
 }
 
-#[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Default, Debug)]
+#[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Default, Debug, ValueEnum)]
 pub enum FrontMatterFormat {
-    #[default]
     #[serde(rename = "toml")]
     Toml,
     #[serde(rename = "json")]
     Json,
+    #[default]
     #[serde(rename = "yaml")]
     Yaml,
 }
@@ -63,6 +64,12 @@ pub enum FrontMatterParser {
     TomlParser(Matter<TOML>),
     JsonParser(Matter<JSON>),
     YamlParser(Matter<YAML>),
+}
+
+impl ToString for FrontMatterFormat {
+    fn to_string(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 impl FrontMatterParser {

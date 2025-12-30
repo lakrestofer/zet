@@ -129,6 +129,7 @@ make_node_struct_impls! {
         pub children: Vec<Node>,
     }
 
+    /// `[foo](bar)`
     pub struct InlineLink {
         pub range: Range,
         pub children: Vec<Node>,
@@ -136,22 +137,26 @@ make_node_struct_impls! {
         pub title: Option<String>,
     }
 
+    /// `[foo][bar]`
     pub struct ReferenceLink {
         pub range: Range,
         pub children: Vec<Node>,
         pub reference: String,
     }
 
+    /// `[foo]`
     pub struct ShortcutLink {
         pub range: Range,
         pub children: Vec<Node>,
     }
 
+    /// `www.foo.bar`
     pub struct AutoLink {
         pub range: Range,
         pub children: Vec<Node>,
     }
 
+    /// `[[foo]]` `[[foo|bar]]`
     pub struct WikiLink {
         pub range: Range,
         pub children: Vec<Node>,

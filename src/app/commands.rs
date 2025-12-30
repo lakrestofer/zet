@@ -17,4 +17,7 @@ pub enum Command {
     },
     Lsp,
     Format,
+    RawParse {
+        path: PathBuf,
+    },
 }

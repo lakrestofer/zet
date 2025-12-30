@@ -36,14 +36,9 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     );
 
     let removed_ids = removed.iter().map(|r| r.0.as_str()).collect();
-    let updated_ids = updated
-        .iter()
-        .map(|(id, _, _, _, _)| id.0.as_str())
-        .collect();
 
     // we delete old data
-    delete_documents(&mut db, &removed_ids)?;
-    delete_nodes(&mut db, &updated_ids)?;
+    delete_documents(&mut db, &removed_ids)?; // other data will automatically be deleted as well (on delete cascade)
 
     // parse and collect the data to be inserted into the db
     let mut documents = Vec::with_capacity(new.len() + updated.len());
@@ -67,16 +62,25 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
 
     Document::update(db, db_documents)?;
 
-    for (id, nodes) in db_nodes {
-        db_insert_nodes(db, id, nodes)?;
-    }
+    // let links = Vec::new();
+    // for (id, nodes) in db_nodes {
+    //     let node_ids = db_insert_nodes(db, id, &nodes)?;
+
+    //     for (node_id, node) in node_ids.into_iter().zip(nodes.into_iter()) {
+    //         match node {
+    //             ast_nodes::Node::InlineLink(inline_link) => {}
+    //             ast_nodes::Node::WikiLink(wiki_link) => todo!(),
+    //             _ => {}
+    //         }
+    //     }
+    // }
 
     Ok(())
 }
 
 fn build_db_nodes(
     parent: Option<usize>,
-    nodes: Vec<ast_nodes::Node>,
+    nodes: &Vec<ast_nodes::Node>,
     db_nodes: &mut Vec<(NodeKind, Range<usize>, Option<usize>, serde_json::Value)>,
 ) {
     for node in nodes {
@@ -87,21 +91,21 @@ fn build_db_nodes(
         match node {
             Document(d) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), d.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &d.children, db_nodes);
             }
             Paragraph(p) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), p.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &p.children, db_nodes);
             }
             BlockQuote(q) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), q.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &q.children, db_nodes);
             }
             Heading(h) => {
                 let iter = h
                     .attributes
-                    .into_iter()
-                    .map(|(k, v)| (k, serde_json::to_value(v).unwrap()));
+                    .iter()
+                    .map(|(k, v)| (k.to_owned(), serde_json::to_value(v.to_owned()).unwrap()));
                 let map = serde_json::Map::from_iter(iter);
                 let data = json!({
                    "id": h.id,
@@ -110,7 +114,7 @@ fn build_db_nodes(
                    "level": h.level
                 });
                 db_nodes.push((kind, range, parent, data));
-                build_db_nodes(Some(db_nodes.len() - 1), h.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &h.children, db_nodes);
             }
             Text(_) => {
                 db_nodes.push((kind, range, parent, Default::default()));
@@ -120,7 +124,7 @@ fn build_db_nodes(
                     "kind": td.kind,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), td.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &td.children, db_nodes);
             }
             Html(html) => {
                 let data = json!({
@@ -139,7 +143,7 @@ fn build_db_nodes(
                     "name": fd.name,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), fd.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &fd.children, db_nodes);
             }
             InlineLink(il) => {
                 let data = json!({
@@ -147,26 +151,26 @@ fn build_db_nodes(
                     "title": il.title,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), il.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &il.children, db_nodes);
             }
             ReferenceLink(rl) => {
                 let data = json!({
                     "reference": rl.reference,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), rl.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &rl.children, db_nodes);
             }
             ShortcutLink(sl) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), sl.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &sl.children, db_nodes);
             }
             AutoLink(al) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), al.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &al.children, db_nodes);
             }
             WikiLink(wl) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), wl.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &wl.children, db_nodes);
             }
             LinkReference(lr) => {
                 let data = json!({
@@ -180,13 +184,13 @@ fn build_db_nodes(
             ReferenceImage(_ri) => db_nodes.push((kind, range, parent, Default::default())),
             List(l) => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), l.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &l.children, db_nodes);
             }
             Item(i) => {
                 db_nodes.push((kind, range, parent, Default::default()));
                 let id = db_nodes.len() - 1;
-                build_db_nodes(Some(id), i.children, db_nodes);
-                build_db_nodes(Some(id), i.sub_lists, db_nodes);
+                build_db_nodes(Some(id), &i.children, db_nodes);
+                build_db_nodes(Some(id), &i.sub_lists, db_nodes);
             }
             TaskListMarker(tlm) => {
                 let data = json!({"checked": tlm.is_checked});
@@ -204,7 +208,7 @@ fn build_db_nodes(
                     "is_fenced": cb.is_fenced,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), cb.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &cb.children, db_nodes);
             }
             HorizontalRule(_) => db_nodes.push((kind, range, parent, Default::default())),
             Table(table) => {
@@ -245,8 +249,8 @@ fn build_db_nodes(
 fn db_insert_nodes(
     db: &mut DB,
     document_id: DocumentId,
-    nodes: Vec<ast_nodes::Node>,
-) -> Result<()> {
+    nodes: &Vec<ast_nodes::Node>,
+) -> Result<Vec<i64>> {
     // we build a list of all the nodes we are to insert, turning
     // the tree structure into a flat list
     // we then do the insertion in two steps
@@ -254,6 +258,7 @@ fn db_insert_nodes(
     // - update any references to parent nodes
 
     let mut db_nodes = Vec::new();
+    let mut ids = Vec::new();
 
     build_db_nodes(None, nodes, &mut db_nodes);
 
@@ -279,7 +284,6 @@ fn db_insert_nodes(
             ))
             .unwrap();
         // first we insert all the nodes and gather their new ids
-        let mut ids = Vec::new();
         for (node_kind, range, _, json_data) in db_nodes.iter() {
             let Range { start, end } = range;
             let id: i64 = query.query_row(
@@ -326,7 +330,7 @@ fn db_insert_nodes(
     }
     tx.commit()?;
 
-    Ok(())
+    Ok(ids)
 }
 
 fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<DocumentData>> {
@@ -420,18 +424,6 @@ fn delete_documents(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
     let tx = db.transaction()?;
     {
         let mut query = tx.prepare(sql!("delete from document where id = ?"))?;
-        for id in document_ids {
-            query.execute([id])?;
-        }
-    }
-    tx.commit()?;
-    Ok(())
-}
-
-fn delete_nodes(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
-    let tx = db.transaction()?;
-    {
-        let mut query = tx.prepare(sql!("delete from node where document_id = ?"))?;
         for id in document_ids {
             query.execute([id])?;
         }
