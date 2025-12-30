@@ -3,7 +3,6 @@ use zet::core::parser::FrontMatterFormat;
 pub mod index;
 pub mod init;
 pub mod parse;
-pub mod raw_query;
 
 use crate::app::preamble::*;
 use zet::preamble::*;
@@ -22,7 +21,6 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             match command {
                 Command::Parse { path } => parse::handle_command(config, path)?,
                 Command::Index { force } => index::handle_command(config, force)?,
-                Command::RawQuery { query } => raw_query::handle_command(config, query)?,
                 Command::Lsp => todo!(),
                 Command::Format => todo!(),
                 Command::Init { root: _, force: _ } => todo!(),

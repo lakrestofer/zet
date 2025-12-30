@@ -11,37 +11,27 @@ use time::OffsetDateTime;
 
 use sql_minifier::macros::minify_sql as sql;
 
+////////////////////////////////////////////////////////////
+// new type pattern
+////////////////////////////////////////////////////////////
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct DocumentPath(pub PathBuf);
-
-impl From<String> for DocumentId {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentId(pub String);
 
-impl FromSql for DocumentId {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let s: String = value.as_str()?.to_owned();
-        Ok(DocumentId(s))
-    }
-}
-
-impl ToSql for DocumentId {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(self.0.to_owned().into())
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModifiedTimestamp(pub OffsetDateTime);
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CreatedTimestamp(pub OffsetDateTime);
+
+////////////////////////////////////////////////////////////
+// Document
+////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
@@ -75,6 +65,10 @@ impl Document {
         }
     }
 }
+
+////////////////////////////////////////////////////////////
+// Crud trait implementations
+////////////////////////////////////////////////////////////
 
 impl DbList<Document> for Document {
     fn list(db: &rusqlite::Connection) -> Result<Vec<Document>> {
@@ -225,6 +219,10 @@ impl DbDelete<DocumentId> for Document {
     }
 }
 
+////////////////////////////////////////////////////////////
+// sql conversion traits
+////////////////////////////////////////////////////////////
+
 impl FromSql for ModifiedTimestamp {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         Ok(ModifiedTimestamp(OffsetDateTime::column_result(value)?))
@@ -262,5 +260,22 @@ impl From<DocumentPath> for PathBuf {
 impl ToSql for DocumentPath {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(self.0.to_string_lossy().into_owned().into())
+    }
+}
+
+impl From<String> for DocumentId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+impl FromSql for DocumentId {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let s: String = value.as_str()?.to_owned();
+        Ok(DocumentId(s))
+    }
+}
+impl ToSql for DocumentId {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(self.0.to_owned().into())
     }
 }
