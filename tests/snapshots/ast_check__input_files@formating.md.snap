@@ -1,0 +1,92 @@
+---
+source: tests/ast_check.rs
+expression: res
+input_file: tests/input_files/formating.md
+---
+- ~
+- range:
+    start: 0
+    end: 109
+  children:
+    - Heading:
+        id: ~
+        classes: []
+        attributes: []
+        range:
+          start: 0
+          end: 20
+        level: 1
+        content: this is a heading
+    - Paragraph:
+        range:
+          start: 21
+          end: 86
+        children:
+          - Text:
+              range:
+                start: 21
+                end: 35
+              text: "and this is a "
+          - TextDecoration:
+              range:
+                start: 35
+                end: 46
+              kind: Emphasis
+              children:
+                - Text:
+                    range:
+                      start: 36
+                      end: 45
+                    text: paragraph
+          - Text:
+              range:
+                start: 46
+                end: 61
+              text: " that has some "
+          - TextDecoration:
+              range:
+                start: 61
+                end: 72
+              kind: Strong
+              children:
+                - Text:
+                    range:
+                      start: 63
+                      end: 70
+                    text: special
+          - Text:
+              range:
+                start: 72
+                end: 73
+              text: " "
+          - Code:
+              range:
+                start: 73
+                end: 85
+              code: formatting
+    - Paragraph:
+        range:
+          start: 87
+          end: 109
+        children:
+          - Text:
+              range:
+                start: 87
+                end: 96
+              text: "to be or "
+          - TextDecoration:
+              range:
+                start: 96
+                end: 103
+              kind: Strikethrough
+              children:
+                - Text:
+                    range:
+                      start: 98
+                      end: 101
+                    text: not
+          - Text:
+              range:
+                start: 103
+                end: 109
+              text: " to be"
