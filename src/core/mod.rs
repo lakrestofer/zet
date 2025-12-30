@@ -264,10 +264,7 @@ pub fn extract_title_from_frontmatter(data: &serde_json::Value) -> Option<String
 pub fn extract_title_from_ast(ast: &[ast_nodes::Node]) -> Option<String> {
     // the first heading found
     for node in ast.iter() {
-        match &node {
-            ast_nodes::Node::Heading { content, .. } => return Some(content.to_owned()),
-            _ => {}
-        }
+        if let ast_nodes::Node::Heading { content, .. } = &node { return Some(content.to_owned()) }
     }
 
     None

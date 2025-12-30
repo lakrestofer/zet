@@ -137,15 +137,15 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         Event::Code(str) => parse_code(str, range, iter),
         Event::InlineMath(str) => Ok(Node::inlinemath(range, str.into_string())),
         Event::DisplayMath(str) => Ok(Node::displaymath(range, str.into_string())),
-        Event::Html(str) => Ok(Node::html(range, str.into_string()).into()),
-        Event::InlineHtml(str) => Ok(Node::html(range, str.into_string()).into()),
+        Event::Html(str) => Ok(Node::html(range, str.into_string())),
+        Event::InlineHtml(str) => Ok(Node::html(range, str.into_string())),
         Event::FootnoteReference(str) => {
-            Ok(Node::footnotereference(range, String::from(str.as_ref())).into())
+            Ok(Node::footnotereference(range, String::from(str.as_ref())))
         }
-        Event::SoftBreak => Ok(Node::softbreak(range).into()),
-        Event::HardBreak => Ok(Node::hardbreak(range).into()),
+        Event::SoftBreak => Ok(Node::softbreak(range)),
+        Event::HardBreak => Ok(Node::hardbreak(range)),
         Event::Rule => Ok(Node::horizontalrule(range)),
-        Event::TaskListMarker(checked) => Ok(Node::tasklistmarker(range, checked).into()),
+        Event::TaskListMarker(checked) => Ok(Node::tasklistmarker(range, checked)),
     }
 }
 
@@ -166,7 +166,7 @@ fn parse_code(
     while raw_text.starts_with("`") && raw_text.ends_with("`") {
         raw_text = &raw_text[1..(raw_text.len() - 1)];
     }
-    Ok(Node::code(range, raw_text.to_string()).into())
+    Ok(Node::code(range, raw_text.to_string()))
 }
 
 fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
@@ -224,11 +224,11 @@ fn parse_image(
         }
     }
     match link_type {
-        LinkType::Inline => Ok(Node::inlineimage(range).into()),
+        LinkType::Inline => Ok(Node::inlineimage(range)),
         LinkType::Reference
         | LinkType::ReferenceUnknown
         | LinkType::Collapsed
-        | LinkType::CollapsedUnknown => Ok(Node::referenceimage(range).into()),
+        | LinkType::CollapsedUnknown => Ok(Node::referenceimage(range)),
         _ => Err(eyre!("not implemented yet")),
     }
 }
@@ -236,7 +236,7 @@ fn parse_image(
 fn parse_link(
     link_type: LinkType,
     dest_url: CowStr<'_>,
-    title: CowStr<'_>,
+    _title: CowStr<'_>,
     _id: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
@@ -274,13 +274,13 @@ fn parse_link(
 
             for event in children {
                 match &event {
-                    Node::Text { text, range } => title.push_str(&text.to_string()),
+                    Node::Text { text, range: _ } => title.push_str(&text.to_string()),
                     Node::TextDecoration {
-                        kind,
+                        kind: _,
                         content,
-                        range,
-                    } => title.push_str(&content),
-                    Node::Code { code, range } => title.push_str(&code),
+                        range: _,
+                    } => title.push_str(content),
+                    Node::Code { code, range: _ } => title.push_str(code),
 
                     _ => panic!(
                         "parser encounter unexpected event when parsing link: {:?}",
@@ -289,12 +289,12 @@ fn parse_link(
                 }
             }
 
-            Ok(Node::inlinelink(range, title, dest_url.to_string()).into())
+            Ok(Node::inlinelink(range, title, dest_url.to_string()))
         }
         LinkType::Autolink | LinkType::Email => {
-            Ok(Node::autolink(range, dest_url.to_string()).into())
+            Ok(Node::autolink(range, dest_url.to_string()))
         }
-        LinkType::WikiLink { .. } => Ok(Node::wikilink(range, children).into()),
+        LinkType::WikiLink { .. } => Ok(Node::wikilink(range, children)),
         // not implemented
         LinkType::Reference
         | LinkType::ReferenceUnknown
@@ -322,12 +322,11 @@ fn parse_text_decor(
         TextDecorationKind::Subscript => TagEnd::Subscript,
     };
 
-    while let Some((event, range)) = iter.next() {
-        if let Event::End(tag) = event {
-            if tag == target_end {
+    for (event, _range) in iter.by_ref() {
+        if let Event::End(tag) = event
+            && tag == target_end {
                 break;
             }
-        }
 
         if let Event::Text(text) = event {
             content = text.to_string();
@@ -336,7 +335,7 @@ fn parse_text_decor(
         }
     }
 
-    Ok(Node::textdecoration(range, kind, content).into())
+    Ok(Node::textdecoration(range, kind, content))
 }
 
 fn parse_table_cell(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableCell> {
@@ -400,8 +399,7 @@ fn parse_table(
             })
             .collect(),
         rows,
-    )
-    .into())
+    ))
 }
 
 fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableHead> {
@@ -434,7 +432,7 @@ fn parse_footnote_def(
         }
     }
 
-    Ok(Node::footnotedefinition(range, name.to_string(), children).into())
+    Ok(Node::footnotedefinition(range, name.to_string(), children))
 }
 
 fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -452,7 +450,7 @@ fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node
         }
     }
 
-    Ok(Node::item(range, children, sub_lists).into())
+    Ok(Node::item(range, children, sub_lists))
 }
 
 fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -465,7 +463,7 @@ fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>
         }
     }
 
-    Ok(Node::list(range, n, children).into())
+    Ok(Node::list(range, n, children))
 }
 
 fn parse_htmlblock(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -478,7 +476,7 @@ fn parse_htmlblock(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result
         }
     }
 
-    Ok(Node::html(range, "TODO".into()).into())
+    Ok(Node::html(range, "TODO".into()))
 }
 
 fn parse_code_block(
@@ -504,7 +502,7 @@ fn parse_code_block(
         }
     };
 
-    Ok(Node::codeblock(range, tag, is_fenced, children).into())
+    Ok(Node::codeblock(range, tag, is_fenced, children))
 }
 
 fn parse_blockquote(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -517,7 +515,7 @@ fn parse_blockquote(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
         }
     }
 
-    Ok(Node::blockquote(range, children).into())
+    Ok(Node::blockquote(range, children))
 }
 
 fn parse_paragraph(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -530,7 +528,7 @@ fn parse_paragraph(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result
         }
     }
 
-    Ok(Node::paragraph(range, children).into())
+    Ok(Node::paragraph(range, children))
 }
 
 fn parse_heading(
@@ -543,14 +541,14 @@ fn parse_heading(
 ) -> Result<Node> {
     let mut heading_content = String::new();
 
-    while let Some((event, _)) = iter.next() {
+    for (event, _) in iter.by_ref() {
         match event {
             Event::End(TagEnd::Heading(end_level)) => {
                 if end_level == level {
                     break;
                 }
             }
-            Event::Text(content) => heading_content.push_str(&content.to_string()),
+            Event::Text(content) => heading_content.push_str(content.as_ref()),
             _ => {}
         }
     }
@@ -565,8 +563,7 @@ fn parse_heading(
             .collect(),
         level as u8,
         heading_content,
-    )
-    .into())
+    ))
 }
 
 pub type FrontMatter = serde_json::Value;

@@ -3,7 +3,6 @@ use serde_json::{Value, json};
 use sql_minifier::macros::minify_sql as sql;
 use std::ops::Range;
 use zet::core::db::DbUpdate;
-use zet::core::parser::ast_nodes::{TableCell, TableHead, TableRow};
 use zet::core::path_to_id;
 use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
 use zet::preamble::*;
@@ -69,7 +68,7 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
     Document::update(db, db_documents)?;
 
     for (id, nodes) in db_nodes {
-        let node_ids = db_insert_nodes(db, id, &nodes)?;
+        let _node_ids = db_insert_nodes(db, id, &nodes)?;
     }
 
     Ok(())
@@ -87,11 +86,11 @@ fn build_db_nodes<'a>(
         match node {
             Paragraph { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             BlockQuote { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             Heading {
                 id,
@@ -119,7 +118,7 @@ fn build_db_nodes<'a>(
             }
             TextDecoration {
                 kind: decor_kind,
-                content,
+                content: _,
                 range,
             } => {
                 let data = json!({
@@ -148,7 +147,7 @@ fn build_db_nodes<'a>(
                     "name": name,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             InlineLink {
                 title,
@@ -170,19 +169,19 @@ fn build_db_nodes<'a>(
                     "reference": reference,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             ShortcutLink { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
-            AutoLink { target, range } => {
+            AutoLink { target: _, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
                 // build_db_nodes(Some(db_nodes.len() - 1), &al., db_nodes);
             }
             WikiLink { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             LinkReference {
                 name,
@@ -200,12 +199,12 @@ fn build_db_nodes<'a>(
             InlineImage { range } => db_nodes.push((kind, range, parent, Default::default())),
             ReferenceImage { range } => db_nodes.push((kind, range, parent, Default::default())),
             List {
-                start_index,
+                start_index: _,
                 children,
                 range,
             } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             Item {
                 children,
@@ -214,8 +213,8 @@ fn build_db_nodes<'a>(
             } => {
                 db_nodes.push((kind, range, parent, Default::default()));
                 let id = db_nodes.len() - 1;
-                build_db_nodes(Some(id), &children, db_nodes);
-                build_db_nodes(Some(id), &sub_lists, db_nodes);
+                build_db_nodes(Some(id), children, db_nodes);
+                build_db_nodes(Some(id), sub_lists, db_nodes);
             }
             TaskListMarker { is_checked, range } => {
                 let data = json!({"checked": is_checked});
@@ -238,12 +237,12 @@ fn build_db_nodes<'a>(
                     "is_fenced": is_fenced,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
             HorizontalRule { range } => db_nodes.push((kind, range, parent, Default::default())),
             Table {
                 header,
-                column_alignment,
+                column_alignment: _,
                 rows,
                 range,
             } => {

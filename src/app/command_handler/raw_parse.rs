@@ -25,8 +25,8 @@ pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> 
 
     let mut out = BufWriter::new(std::io::stdout());
 
-    while let Some((event, range)) = parser.next() {
-        write!(out, "{:?}: {:?}\n", range, event)?;
+    for (event, range) in parser {
+        writeln!(out, "{:?}: {:?}", range, event)?;
     }
 
     Ok(())

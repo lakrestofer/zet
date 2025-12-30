@@ -2,7 +2,7 @@ use std::io::BufWriter;
 use std::io::Write;
 
 use zet::core::parser::FrontMatterFormat;
-use zet::{config::Config, core::parser::FrontMatterParser};
+use zet::core::parser::FrontMatterParser;
 
 use crate::app::preamble::*;
 use zet::preamble::*;
