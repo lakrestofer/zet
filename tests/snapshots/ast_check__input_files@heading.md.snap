@@ -16,9 +16,4 @@ input_file: tests/input_files/heading.md
           start: 0
           end: 30
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 30
-              text: this is a heading on level 1
+        content: this is a heading on level 1

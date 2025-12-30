@@ -4,7 +4,7 @@ use std::io::Write;
 use pulldown_cmark::Parser;
 use zet::core::parser::DocumentParser;
 use zet::core::parser::FrontMatterFormat;
-use zet::{config::Config, core::parser::FrontMatterParser};
+use zet::core::parser::FrontMatterParser;
 
 use crate::app::preamble::*;
 use zet::preamble::*;
@@ -15,11 +15,10 @@ pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> 
     log::debug!("parsing {:?}", path);
 
     let frontmatter_parser = FrontMatterParser::new(front_matter_format);
-    let content_parser = zet::core::parser::DocumentParser::new();
 
     let document = std::fs::read_to_string(path)?;
 
-    let (frontmatter, content) = frontmatter_parser.parse(document);
+    let (_, content) = frontmatter_parser.parse(document);
 
     let options = DocumentParser::default().options;
     let mut parser = Parser::new_ext(&content, options).into_offset_iter();

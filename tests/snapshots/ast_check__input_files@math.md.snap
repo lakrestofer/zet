@@ -16,12 +16,7 @@ input_file: tests/input_files/math.md
           start: 0
           end: 7
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 6
-              text: math
+        content: math
     - Paragraph:
         range:
           start: 8

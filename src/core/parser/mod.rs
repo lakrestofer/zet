@@ -545,16 +545,17 @@ fn parse_heading(
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    let mut children = Vec::new();
+    let mut heading_content = String::new();
 
-    while let Some((event, range)) = iter.next() {
+    while let Some((event, _)) = iter.next() {
         match event {
             Event::End(TagEnd::Heading(end_level)) => {
                 if end_level == level {
                     break;
                 }
             }
-            _ => children.push(parse_event(event, range, iter)?),
+            Event::Text(content) => heading_content.push_str(&content.to_string()),
+            _ => {}
         }
     }
 
@@ -562,7 +563,7 @@ fn parse_heading(
         id: id.map(|s| s.to_string()),
         range,
         level: level as u8,
-        children,
+        content: heading_content,
         classes: classes.iter().map(|s| s.to_string()).collect(),
         attributes: attrs
             .iter()

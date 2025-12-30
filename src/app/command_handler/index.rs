@@ -109,12 +109,12 @@ fn build_db_nodes(
                 let map = serde_json::Map::from_iter(iter);
                 let data = json!({
                    "id": h.id,
+                   "content": h.content,
                    "classes": h.classes,
                    "attributes": map,
                    "level": h.level
                 });
                 db_nodes.push((kind, range, parent, data));
-                build_db_nodes(Some(db_nodes.len() - 1), &h.children, db_nodes);
             }
             Text(_) => {
                 db_nodes.push((kind, range, parent, Default::default()));

@@ -16,12 +16,7 @@ input_file: tests/input_files/footnote.md
           start: 0
           end: 12
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 11
-              text: footnotes
+        content: footnotes
     - Paragraph:
         range:
           start: 13
@@ -60,12 +55,7 @@ input_file: tests/input_files/footnote.md
           start: 121
           end: 135
         level: 2
-        children:
-          - Text:
-              range:
-                start: 124
-                end: 134
-              text: references
+        content: references
     - FootnoteDefinition:
         range:
           start: 136

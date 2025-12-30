@@ -16,12 +16,7 @@ input_file: tests/input_files/table.md
           start: 0
           end: 24
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 23
-              text: this is markdown file
+        content: this is markdown file
     - Paragraph:
         range:
           start: 25

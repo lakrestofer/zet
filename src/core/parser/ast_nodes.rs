@@ -77,7 +77,7 @@ make_node_struct_impls! {
         pub attributes: Vec<(String, Option<String>)>,
         pub range: Range,
         pub level: u8,
-        pub children: Vec<Node>,
+        pub content: String,
     }
 
     pub struct Paragraph {

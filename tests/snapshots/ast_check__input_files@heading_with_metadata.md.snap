@@ -16,12 +16,7 @@ input_file: tests/input_files/heading_with_metadata.md
           start: 0
           end: 20
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 19
-              text: this is a heading
+        content: this is a heading
     - Paragraph:
         range:
           start: 21
@@ -46,9 +41,4 @@ input_file: tests/input_files/heading_with_metadata.md
           start: 34
           end: 131
         level: 2
-        children:
-          - Text:
-              range:
-                start: 37
-                end: 76
-              text: this is another heading with attributes
+        content: this is another heading with attributes

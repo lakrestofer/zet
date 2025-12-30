@@ -16,12 +16,7 @@ input_file: tests/input_files/list.md
           start: 0
           end: 32
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 31
-              text: this is a file with a heading
+        content: this is a file with a heading
     - List:
         range:
           start: 33

@@ -16,12 +16,7 @@ input_file: tests/input_files/blockquote.md
           start: 0
           end: 13
         level: 1
-        children:
-          - Text:
-              range:
-                start: 2
-                end: 12
-              text: blockquote
+        content: blockquote
     - BlockQuote:
         range:
           start: 14
