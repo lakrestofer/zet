@@ -4,41 +4,37 @@ expression: res
 input_file: tests/input_files/heading_with_metadata.md
 ---
 - ~
-- range:
-    start: 0
-    end: 131
-  children:
-    - Heading:
-        id: ~
-        classes: []
-        attributes: []
-        range:
-          start: 0
-          end: 20
-        level: 1
-        content: this is a heading
-    - Paragraph:
-        range:
-          start: 21
-          end: 33
-        children:
-          - Text:
-              range:
-                start: 21
-                end: 32
-              text: hello there
-    - Heading:
-        id: id2
-        classes:
-          - class1
-          - class2
-        attributes:
-          - - myattr
-            - ~
-          - - other_attr
-            - myvalue
-        range:
-          start: 34
-          end: 131
-        level: 2
-        content: this is another heading with attributes
+- - Heading:
+      range:
+        start: 0
+        end: 20
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: this is a heading
+  - Paragraph:
+      range:
+        start: 21
+        end: 33
+      children:
+        - Text:
+            range:
+              start: 21
+              end: 32
+            text: hello there
+  - Heading:
+      range:
+        start: 34
+        end: 131
+      id: id2
+      classes:
+        - class1
+        - class2
+      attributes:
+        - - myattr
+          - ~
+        - - other_attr
+          - myvalue
+      level: 2
+      content: this is another heading with attributes

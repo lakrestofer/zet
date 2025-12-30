@@ -4,106 +4,102 @@ expression: res
 input_file: tests/input_files/list.md
 ---
 - ~
-- range:
-    start: 0
-    end: 106
-  children:
-    - Heading:
-        id: ~
-        classes: []
-        attributes: []
-        range:
-          start: 0
-          end: 32
-        level: 1
-        content: this is a file with a heading
-    - List:
-        range:
-          start: 33
-          end: 106
-        start_index: ~
-        children:
-          - Item:
-              range:
-                start: 33
-                end: 63
-              children:
-                - Text:
-                    range:
-                      start: 35
-                      end: 45
-                    text: and a list
-              sub_lists:
-                - List:
-                    range:
-                      start: 48
-                      end: 63
-                    start_index: ~
-                    children:
-                      - Item:
-                          range:
-                            start: 48
-                            end: 63
-                          children:
-                            - Text:
-                                range:
-                                  start: 50
-                                  end: 62
-                                text: with several
-                          sub_lists: []
-          - Item:
-              range:
-                start: 63
-                end: 106
-              children:
-                - Text:
-                    range:
-                      start: 65
-                      end: 70
-                    text: items
-              sub_lists:
-                - List:
-                    range:
-                      start: 73
-                      end: 106
-                    start_index: ~
-                    children:
-                      - Item:
-                          range:
-                            start: 73
-                            end: 106
-                          children:
-                            - Text:
-                                range:
-                                  start: 75
-                                  end: 77
-                                text: "on"
-                          sub_lists:
-                            - List:
-                                range:
-                                  start: 82
-                                  end: 106
-                                start_index: ~
-                                children:
-                                  - Item:
-                                      range:
-                                        start: 82
-                                        end: 94
-                                      children:
-                                        - Text:
-                                            range:
-                                              start: 84
-                                              end: 93
-                                            text: different
-                                      sub_lists: []
-                                  - Item:
-                                      range:
-                                        start: 98
-                                        end: 106
-                                      children:
-                                        - Text:
-                                            range:
-                                              start: 100
-                                              end: 106
-                                            text: levels
-                                      sub_lists: []
+- - Heading:
+      range:
+        start: 0
+        end: 32
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: this is a file with a heading
+  - List:
+      range:
+        start: 33
+        end: 106
+      start_index: ~
+      children:
+        - Item:
+            range:
+              start: 33
+              end: 63
+            children:
+              - Text:
+                  range:
+                    start: 35
+                    end: 45
+                  text: and a list
+            sub_lists:
+              - List:
+                  range:
+                    start: 48
+                    end: 63
+                  start_index: ~
+                  children:
+                    - Item:
+                        range:
+                          start: 48
+                          end: 63
+                        children:
+                          - Text:
+                              range:
+                                start: 50
+                                end: 62
+                              text: with several
+                        sub_lists: []
+        - Item:
+            range:
+              start: 63
+              end: 106
+            children:
+              - Text:
+                  range:
+                    start: 65
+                    end: 70
+                  text: items
+            sub_lists:
+              - List:
+                  range:
+                    start: 73
+                    end: 106
+                  start_index: ~
+                  children:
+                    - Item:
+                        range:
+                          start: 73
+                          end: 106
+                        children:
+                          - Text:
+                              range:
+                                start: 75
+                                end: 77
+                              text: "on"
+                        sub_lists:
+                          - List:
+                              range:
+                                start: 82
+                                end: 106
+                              start_index: ~
+                              children:
+                                - Item:
+                                    range:
+                                      start: 82
+                                      end: 94
+                                    children:
+                                      - Text:
+                                          range:
+                                            start: 84
+                                            end: 93
+                                          text: different
+                                    sub_lists: []
+                                - Item:
+                                    range:
+                                      start: 98
+                                      end: 106
+                                    children:
+                                      - Text:
+                                          range:
+                                            start: 100
+                                            end: 106
+                                          text: levels
+                                    sub_lists: []

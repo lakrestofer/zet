@@ -2,358 +2,424 @@ use serde::{Deserialize, Serialize};
 
 pub type Range = std::ops::Range<usize>;
 
-pub trait Ranged {
-    fn range(&self) -> &Range;
-}
-
-macro_rules! make_node_struct_impls {
-    (
-        $(
-            $(#[$meta:meta])*
-            $vis:vis struct $name:ident {
-                $(
-                    $fvis:vis $field:ident : $ty:ty
-                ),* $(,)?
-            }
-        )*
-    ) => {
-        $(
-            $(#[$meta])*
-            #[derive(Debug, Serialize, Deserialize)]
-            $vis struct $name {
-                $(
-                    $fvis $field : $ty,
-                )*
-            }
-
-            impl $name {
-                pub fn new($($field: $ty),*) -> Self {
-                    Self { $($field),* }
-                }
-            }
-        )*
-    }
-}
-
-macro_rules! make_node_enum_impls {
-    (
-        $(
-            $(#[$emeta:meta])*
-            $evis:vis enum $ename:ident {
-                $(
-                    $variant:ident $( ( $($vty:ty),* ) )?
-                ),* $(,)?
-            }
-        )*
-    ) => {
-        $(
-            $(#[$emeta])*
-            #[derive(Debug)]
-            $evis enum $ename {
-                $(
-                    $variant $( ( $($vty),* ) )?,
-                )*
-            }
-        )*
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub enum BlockQuoteKind {
     Inline,
     Fenced(String),
 }
 
-make_node_struct_impls! {
-    pub struct Document {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-
-    pub struct Heading {
-        pub id: Option<String>,
-        pub classes: Vec<String>,
-        pub attributes: Vec<(String, Option<String>)>,
-        pub range: Range,
-        pub level: u8,
-        pub content: String,
-    }
-
-    pub struct Paragraph {
-        pub range: Range,
-        pub children: Vec<Node>,
-        // pub marker: Option<TaskListMarker>,
-    }
-
-    pub struct BlockQuote {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-    pub struct Text {
-        pub range: Range,
-        pub text: String,
-    }
-
-
-    pub struct TextDecoration {
-        pub range: Range,
-        pub kind: TextDecorationKind,
-        pub children: Vec<Node>,
-    }
-
-    pub struct Html {
-        pub range: Range,
-        pub text: String
-    }
-
-    pub struct DisplayMath {
-        pub range: Range,
-        pub text: String,
-    }
-
-    pub struct InlineMath {
-        pub range: Range,
-        pub text: String,
-    }
-
-    pub struct FootnoteReference {
-        pub range: Range,
-        pub name: String,
-    }
-
-    pub struct FootnoteDefinition {
-        pub range: Range,
-        pub name: String,
-        pub children: Vec<Node>,
-    }
-
-    /// `[foo](bar)`
-    pub struct InlineLink {
-        pub range: Range,
-        pub children: Vec<Node>,
-        pub url: String,
-        pub title: Option<String>,
-    }
-
-    /// `[foo][bar]`
-    pub struct ReferenceLink {
-        pub range: Range,
-        pub children: Vec<Node>,
-        pub reference: String,
-    }
-
-    /// `[foo]`
-    pub struct ShortcutLink {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-    /// `www.foo.bar`
-    pub struct AutoLink {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-    /// `[[foo]]` `[[foo|bar]]`
-    pub struct WikiLink {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-    pub struct LinkReference {
-        pub range: Range,
-        pub name: String,
-        pub link: String,
-        pub title: Option<String>,
-    }
-
-    pub struct InlineImage {
-        pub range: Range,
-        // pub text: String,
-        // pub url: String,
-        // pub title: Option<String>,
-    }
-
-    pub struct ReferenceImage {
-        pub range: Range,
-        // pub text: String,
-        // pub reference: String,
-    }
-
-    pub struct SoftBreak {
-        pub range: Range,
-    }
-
-    pub struct HardBreak {
-        pub range: Range,
-    }
-
-    pub struct List {
-        pub range: Range,
-        pub start_index: Option<u64>,
-        pub children: Vec<Node>,
-    }
-
-    pub struct Item {
-        pub range: Range,
-        // pub marker: Option<TaskListMarker>,
-        pub children: Vec<Node>,
-        pub sub_lists: Vec<Node>,
-    }
-
-    pub struct TaskListMarker {
-        pub range: Range,
-        pub is_checked: bool,
-    }
-
-    /// Inline code.
-    pub struct Code {
-        pub range: Range,
-        pub code: String,
-    }
-
-    pub struct CodeBlock {
-        pub range: Range,
-        pub tag: Option<String>,
-        pub is_fenced: bool,
-        pub children: Vec<Node>,
-    }
-
-    pub struct HorizontalRule {
-        pub range: Range,
-    }
-
-    pub struct Table {
-        pub range: Range,
-        pub header: TableHead,
-        pub column_alignment: Vec<ColumnAlignment>,
-        pub rows: Vec<TableRow>,
-    }
-
-    pub struct TableHead {
-        pub range: Range,
-        pub cells: Vec<TableCell>,
-    }
-
-    pub struct TableRow {
-        pub range: Range,
-        pub cells: Vec<TableCell>,
-    }
-
-    pub struct TableCell {
-        pub range: Range,
-        pub children: Vec<Node>,
-    }
-
-    pub struct NotImplemented {
-        pub range: Range,
-    }
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
+pub enum TextDecorationKind {
+    Emphasis,
+    Strong,
+    Strikethrough,
+    Superscript,
+    Subscript,
 }
 
-make_node_enum_impls! {
-    #[derive(PartialEq , Copy, Clone, Serialize, Deserialize)]
-    pub enum TextDecorationKind {
-        Emphasis,
-        Strong,
-        Strikethrough,
-        Superscript,
-        Subscript
-    }
-
-
-    #[derive(PartialEq , Copy, Clone, Serialize, Deserialize)]
-    pub enum ColumnAlignment {
-        None,
-        Left,
-        Center,
-        Right,
-    }
-
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
+pub enum ColumnAlignment {
+    None,
+    Left,
+    Center,
+    Right,
 }
 
-macro_rules! generate_node {
-($($node_name:ident),*) => {
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Node {
+    NotImplemented {
+        range: Range,
+    },
+    SoftBreak {
+        range: Range,
+    },
+    HardBreak {
+        range: Range,
+    },
+    Heading {
+        range: Range,
+        id: Option<String>,
+        classes: Vec<String>,
+        attributes: Vec<(String, Option<String>)>,
+        level: u8,
+        content: String,
+    },
+    Paragraph {
+        range: Range,
+        children: Vec<Node>,
+    },
+    BlockQuote {
+        range: Range,
+        children: Vec<Node>,
+    },
+    Text {
+        range: Range,
+        text: String,
+    },
+    TextDecoration {
+        range: Range,
+        kind: TextDecorationKind,
+        content: String,
+    },
+    Html {
+        range: Range,
+        text: String,
+    },
+    FootnoteReference {
+        range: Range,
+        name: String,
+    },
+    FootnoteDefinition {
+        range: Range,
+        name: String,
+        children: Vec<Node>,
+    },
+    InlineLink {
+        range: Range,
+        title: String,
+        target: String,
+    },
+    ReferenceLink {
+        range: Range,
+        children: Vec<Node>,
+        reference: String,
+    },
+    ShortcutLink {
+        range: Range,
+        children: Vec<Node>,
+    },
+    /// <www.foo.bar>
+    AutoLink {
+        range: Range,
+        target: String,
+    },
+    /// `[[foo|bar]]`
+    WikiLink {
+        range: Range,
+        children: Vec<Node>,
+    },
 
-    #[derive(Debug, Serialize, Deserialize)]
-    pub enum Node {
-        $($node_name($node_name)),*,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-    pub enum NodeKind {
-        $($node_name),*,
-    }
-
-    impl Node {
-        #[allow(dead_code)]
-        pub fn kind(&self) -> NodeKind {
-            match self {
-                $(Node::$node_name(_) => NodeKind::$node_name),*
-            }
-        }
-    }
-
-    impl Ranged for Node {
-        fn range(&self) -> &Range {
-            match self {
-                $(Node::$node_name(node) => node.range()),*
-            }
-        }
-
-    }
-
-
-    $(
-    impl Ranged for $node_name {
-        fn range(&self) -> &Range {
-            &self.range
-        }
-
-    }
-
-    impl Into<Node> for $node_name {
-        fn into(self) -> Node {
-            Node::$node_name(self)
-        }
-    }
-    )*
-};
+    LinkReference {
+        range: Range,
+        name: String,
+        link: String,
+        title: Option<String>,
+    },
+    InlineImage {
+        range: Range,
+    },
+    ReferenceImage {
+        range: Range,
+    },
+    List {
+        range: Range,
+        start_index: Option<u64>,
+        children: Vec<Node>,
+    },
+    Item {
+        range: Range,
+        children: Vec<Node>,
+        sub_lists: Vec<Node>,
+    },
+    TaskListMarker {
+        range: Range,
+        is_checked: bool,
+    },
+    Code {
+        range: Range,
+        code: String,
+    },
+    CodeBlock {
+        range: Range,
+        tag: Option<String>,
+        is_fenced: bool,
+        children: Vec<Node>,
+    },
+    HorizontalRule {
+        range: Range,
+    },
+    Table {
+        range: Range,
+        header: TableHead,
+        column_alignment: Vec<ColumnAlignment>,
+        rows: Vec<TableRow>,
+    },
+    DisplayMath {
+        range: Range,
+        text: String,
+    },
+    InlineMath {
+        range: Range,
+        text: String,
+    },
 }
 
 impl Node {
-    pub fn has_preceding_space(&self, file_text: &str) -> bool {
-        let range = self.range();
-        if range.start == 0 {
-            false
-        } else {
-            file_text.as_bytes().get(range.start - 1) == " ".as_bytes().first()
-        }
-    }
-
-    pub fn starts_with_punctuation(&self, file_text: &str) -> bool {
-        let range = self.range();
-        let text = &file_text[range.start..range.end];
-        if let Some(first_char) = text.chars().next() {
-            first_char.is_ascii_punctuation()
-        } else {
-            false
-        }
-    }
-
-    pub fn ends_with_punctuation(&self, file_text: &str) -> bool {
-        let range = self.range();
-        let text = &file_text[range.start..range.end];
-        if let Some(last_char) = text.chars().last() {
-            last_char.is_ascii_punctuation()
-        } else {
-            false
-        }
+    pub fn range(&self) -> Range {
+        let range = match self {
+            Node::NotImplemented { range } => range,
+            Node::SoftBreak { range } => range,
+            Node::HardBreak { range } => range,
+            Node::Heading {
+                range,
+                id,
+                classes,
+                attributes,
+                level,
+                content,
+            } => range,
+            Node::Paragraph { range, children } => range,
+            Node::BlockQuote { range, children } => range,
+            Node::Text { range, text } => range,
+            Node::TextDecoration {
+                range,
+                kind,
+                content,
+            } => range,
+            Node::Html { range, text } => range,
+            Node::FootnoteReference { range, name } => range,
+            Node::FootnoteDefinition {
+                range,
+                name,
+                children,
+            } => range,
+            Node::InlineLink {
+                range,
+                title,
+                target,
+            } => range,
+            Node::ReferenceLink {
+                range,
+                children,
+                reference,
+            } => range,
+            Node::ShortcutLink { range, children } => range,
+            Node::AutoLink { range, target } => range,
+            Node::WikiLink { range, children } => range,
+            Node::LinkReference {
+                range,
+                name,
+                link,
+                title,
+            } => range,
+            Node::InlineImage { range } => range,
+            Node::ReferenceImage { range } => range,
+            Node::List {
+                range,
+                start_index,
+                children,
+            } => range,
+            Node::Item {
+                range,
+                children,
+                sub_lists,
+            } => range,
+            Node::TaskListMarker { range, is_checked } => range,
+            Node::Code { range, code } => range,
+            Node::CodeBlock {
+                range,
+                tag,
+                is_fenced,
+                children,
+            } => range,
+            Node::HorizontalRule { range } => range,
+            Node::Table {
+                range,
+                header,
+                column_alignment,
+                rows,
+            } => range,
+            Node::DisplayMath { range, text } => range,
+            Node::InlineMath { range, text } => range,
+        };
+        range.clone()
     }
 }
 
-generate_node![
+impl Node {
+    pub fn notimplemented(range: Range) -> Self {
+        Self::NotImplemented { range }
+    }
+    pub fn softbreak(range: Range) -> Self {
+        Self::SoftBreak { range }
+    }
+    pub fn hardbreak(range: Range) -> Self {
+        Self::HardBreak { range }
+    }
+    pub fn heading(
+        range: Range,
+        id: Option<String>,
+        classes: Vec<String>,
+        attributes: Vec<(String, Option<String>)>,
+        level: u8,
+        content: String,
+    ) -> Self {
+        Self::Heading {
+            range,
+            id,
+            classes,
+            attributes,
+            level,
+            content,
+        }
+    }
+    pub fn paragraph(range: Range, children: Vec<Node>) -> Self {
+        Self::Paragraph { children, range }
+    }
+    pub fn blockquote(range: Range, children: Vec<Node>) -> Self {
+        Self::Paragraph { children, range }
+    }
+    pub fn text(range: Range, text: String) -> Self {
+        Self::Text { text, range }
+    }
+    pub fn textdecoration(range: Range, kind: TextDecorationKind, content: String) -> Self {
+        Self::TextDecoration {
+            kind,
+            content,
+            range,
+        }
+    }
+    pub fn html(range: Range, text: String) -> Self {
+        Self::Html { text, range }
+    }
+    pub fn footnotereference(range: Range, name: String) -> Self {
+        Self::FootnoteReference { name, range }
+    }
+    pub fn footnotedefinition(range: Range, name: String, children: Vec<Node>) -> Self {
+        Self::FootnoteDefinition {
+            name,
+            children,
+            range,
+        }
+    }
+    pub fn inlinelink(range: Range, title: String, target: String) -> Self {
+        Self::InlineLink {
+            title,
+            target,
+            range,
+        }
+    }
+    pub fn referencelink(range: Range, children: Vec<Node>, reference: String) -> Self {
+        Self::ReferenceLink {
+            children,
+            reference,
+            range,
+        }
+    }
+    pub fn shortcutlink(range: Range, children: Vec<Node>) -> Self {
+        Self::ShortcutLink { children, range }
+    }
+    pub fn autolink(range: Range, target: String) -> Self {
+        Self::AutoLink { target, range }
+    }
+    pub fn wikilink(range: Range, children: Vec<Node>) -> Self {
+        Self::WikiLink { children, range }
+    }
+    pub fn linkreference(range: Range, name: String, link: String, title: Option<String>) -> Self {
+        Self::LinkReference {
+            name,
+            link,
+            title,
+            range,
+        }
+    }
+    pub fn inlineimage(range: Range) -> Self {
+        Self::InlineImage { range }
+    }
+    pub fn referenceimage(range: Range) -> Self {
+        Self::ReferenceImage { range }
+    }
+    pub fn list(range: Range, start_index: Option<u64>, children: Vec<Node>) -> Self {
+        Self::List {
+            start_index,
+            children,
+            range,
+        }
+    }
+    pub fn item(range: Range, children: Vec<Node>, sub_lists: Vec<Node>) -> Self {
+        Self::Item {
+            children,
+            sub_lists,
+            range,
+        }
+    }
+    pub fn tasklistmarker(range: Range, is_checked: bool) -> Self {
+        Self::TaskListMarker { is_checked, range }
+    }
+    pub fn code(range: Range, code: String) -> Self {
+        Self::Code { code, range }
+    }
+    pub fn codeblock(
+        range: Range,
+        tag: Option<String>,
+        is_fenced: bool,
+        children: Vec<Node>,
+    ) -> Self {
+        Self::CodeBlock {
+            tag,
+            is_fenced,
+            children,
+            range,
+        }
+    }
+    pub fn horizontalrule(range: Range) -> Self {
+        Self::HorizontalRule { range }
+    }
+    pub fn table(
+        range: Range,
+        header: TableHead,
+        column_alignment: Vec<ColumnAlignment>,
+        rows: Vec<TableRow>,
+    ) -> Self {
+        Self::Table {
+            header,
+            column_alignment,
+            rows,
+            range,
+        }
+    }
+    pub fn displaymath(range: Range, text: String) -> Self {
+        Self::DisplayMath { text, range }
+    }
+    pub fn inlinemath(range: Range, text: String) -> Self {
+        Self::InlineMath { text, range }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TableHead {
+    pub range: Range,
+    pub cells: Vec<TableCell>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TableRow {
+    pub range: Range,
+    pub cells: Vec<TableCell>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TableCell {
+    pub range: Range,
+    pub children: Vec<Node>,
+}
+
+impl TableHead {
+    pub fn new(range: Range, cells: Vec<TableCell>) -> Self {
+        Self { range, cells }
+    }
+}
+impl TableRow {
+    pub fn new(range: Range, cells: Vec<TableCell>) -> Self {
+        Self { range, cells }
+    }
+}
+impl TableCell {
+    pub fn new(range: Range, children: Vec<Node>) -> Self {
+        Self { range, children }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NodeKind {
     Document,
     NotImplemented,
     Heading,
@@ -364,9 +430,6 @@ generate_node![
     Html,
     FootnoteReference,
     FootnoteDefinition,
-    // DefinitionList,
-    // DefinitionListTitle,
-    // DefinitionListDefinition,
     InlineLink,
     ReferenceLink,
     ShortcutLink,
@@ -388,5 +451,41 @@ generate_node![
     TableRow,
     TableCell,
     DisplayMath,
-    InlineMath
-];
+    InlineMath,
+}
+impl Node {
+    pub fn kind(&self) -> NodeKind {
+        use NodeKind::*;
+
+        match &self {
+            Node::NotImplemented { .. } => NotImplemented,
+            Node::Heading { .. } => Heading,
+            Node::Paragraph { .. } => Paragraph,
+            Node::BlockQuote { .. } => BlockQuote,
+            Node::Text { .. } => Text,
+            Node::TextDecoration { .. } => TextDecoration,
+            Node::Html { .. } => Html,
+            Node::FootnoteReference { .. } => FootnoteReference,
+            Node::FootnoteDefinition { .. } => FootnoteDefinition,
+            Node::InlineLink { .. } => InlineLink,
+            Node::ReferenceLink { .. } => ReferenceLink,
+            Node::ShortcutLink { .. } => ShortcutLink,
+            Node::AutoLink { .. } => AutoLink,
+            Node::WikiLink { .. } => WikiLink,
+            Node::LinkReference { .. } => LinkReference,
+            Node::InlineImage { .. } => InlineImage,
+            Node::ReferenceImage { .. } => ReferenceImage,
+            Node::List { .. } => List,
+            Node::Item { .. } => Item,
+            Node::TaskListMarker { .. } => TaskListMarker,
+            Node::Code { .. } => Code,
+            Node::CodeBlock { .. } => CodeBlock,
+            Node::HorizontalRule { .. } => HorizontalRule,
+            Node::Table { .. } => Table,
+            Node::DisplayMath { .. } => DisplayMath,
+            Node::InlineMath { .. } => InlineMath,
+            Node::SoftBreak { .. } => SoftBreak,
+            Node::HardBreak { .. } => HardBreak,
+        }
+    }
+}

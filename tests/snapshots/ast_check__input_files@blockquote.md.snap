@@ -4,46 +4,42 @@ expression: res
 input_file: tests/input_files/blockquote.md
 ---
 - ~
-- range:
-    start: 0
-    end: 43
-  children:
-    - Heading:
-        id: ~
-        classes: []
-        attributes: []
-        range:
-          start: 0
-          end: 13
-        level: 1
-        content: blockquote
-    - BlockQuote:
-        range:
-          start: 14
-          end: 30
-        children:
-          - Paragraph:
-              range:
-                start: 16
-                end: 30
-              children:
-                - Text:
-                    range:
-                      start: 16
-                      end: 29
-                    text: regular quote
-    - BlockQuote:
-        range:
-          start: 31
-          end: 43
-        children:
-          - Paragraph:
-              range:
-                start: 33
-                end: 43
-              children:
-                - Text:
-                    range:
-                      start: 33
-                      end: 43
-                    text: note quote
+- - Heading:
+      range:
+        start: 0
+        end: 13
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: blockquote
+  - Paragraph:
+      range:
+        start: 14
+        end: 30
+      children:
+        - Paragraph:
+            range:
+              start: 16
+              end: 30
+            children:
+              - Text:
+                  range:
+                    start: 16
+                    end: 29
+                  text: regular quote
+  - Paragraph:
+      range:
+        start: 31
+        end: 43
+      children:
+        - Paragraph:
+            range:
+              start: 33
+              end: 43
+            children:
+              - Text:
+                  range:
+                    start: 33
+                    end: 43
+                  text: note quote

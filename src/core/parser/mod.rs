@@ -2,7 +2,7 @@ pub mod ast_nodes;
 
 use crate::preamble::*;
 
-use crate::core::parser::ast_nodes::{Heading, *};
+use crate::core::parser::ast_nodes::*;
 use clap::ValueEnum;
 use color_eyre::eyre::eyre;
 use gray_matter::{
@@ -34,17 +34,10 @@ pub fn parse(
     frontmatter_parser: FrontMatterParser,
     document_parser: DocumentParser,
     document: String,
-) -> Result<(Option<serde_json::Value>, Document)> {
+) -> Result<(Option<serde_json::Value>, Vec<Node>)> {
     let (frontmatter, content) = frontmatter_parser.parse(document);
 
     let events = document_parser.parse(content)?;
-
-    if log::log_enabled!(log::Level::Debug) {
-        let events_json = serde_json::to_string_pretty(&events)
-            .map_err(|_| eyre!("could not convert to json"))?;
-
-        log::debug!("{}", events_json);
-    }
 
     Ok((frontmatter, events))
 }
@@ -118,7 +111,7 @@ impl DocumentParser {
         Self::default()
     }
 
-    pub fn parse(&self, document: String) -> Result<Document> {
+    pub fn parse(&self, document: String) -> Result<Vec<Node>> {
         let parser = Parser::new_ext(&document, self.options);
 
         let mut parser_with_offset = ParserIterator {
@@ -132,55 +125,27 @@ impl DocumentParser {
             nodes.push(parse_event(event, range, &mut parser_with_offset)?);
         }
 
-        Ok(Document {
-            children: nodes,
-            range: Range {
-                start: 0,
-                end: document.len(),
-            },
-        })
+        Ok(nodes)
     }
 }
 
 fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
     match event {
         Event::Start(tag) => parse_start(tag, range, iter),
-        Event::End(_) => Ok(NotImplemented::new(range).into()),
+        Event::End(_) => Ok(Node::notimplemented(range)),
         Event::Text(str) => parse_text(str, range, iter),
         Event::Code(str) => parse_code(str, range, iter),
-        Event::InlineMath(str) => Ok(InlineMath {
-            range,
-            text: str.into_string(),
+        Event::InlineMath(str) => Ok(Node::inlinemath(range, str.into_string())),
+        Event::DisplayMath(str) => Ok(Node::displaymath(range, str.into_string())),
+        Event::Html(str) => Ok(Node::html(range, str.into_string()).into()),
+        Event::InlineHtml(str) => Ok(Node::html(range, str.into_string()).into()),
+        Event::FootnoteReference(str) => {
+            Ok(Node::footnotereference(range, String::from(str.as_ref())).into())
         }
-        .into()),
-        Event::DisplayMath(str) => Ok(DisplayMath {
-            range,
-            text: str.into_string(),
-        }
-        .into()),
-        Event::Html(str) => Ok(Html {
-            range,
-            text: str.into_string(),
-        }
-        .into()),
-        Event::InlineHtml(str) => Ok(Html {
-            range,
-            text: str.into_string(),
-        }
-        .into()),
-        Event::FootnoteReference(str) => Ok(FootnoteReference {
-            range,
-            name: String::from(str.as_ref()),
-        }
-        .into()),
-        Event::SoftBreak => Ok(SoftBreak { range }.into()),
-        Event::HardBreak => Ok(HardBreak { range }.into()),
-        Event::Rule => Ok(Node::HorizontalRule(HorizontalRule { range })),
-        Event::TaskListMarker(checked) => Ok(TaskListMarker {
-            range,
-            is_checked: checked,
-        }
-        .into()),
+        Event::SoftBreak => Ok(Node::softbreak(range).into()),
+        Event::HardBreak => Ok(Node::hardbreak(range).into()),
+        Event::Rule => Ok(Node::horizontalrule(range)),
+        Event::TaskListMarker(checked) => Ok(Node::tasklistmarker(range, checked).into()),
     }
 }
 
@@ -189,11 +154,7 @@ fn parse_text(
     range: Range<usize>,
     _iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    Ok(Text {
-        text: cow.to_string(),
-        range,
-    }
-    .into())
+    Ok(Node::text(range, cow.to_string()))
 }
 
 fn parse_code(
@@ -205,11 +166,7 @@ fn parse_code(
     while raw_text.starts_with("`") && raw_text.ends_with("`") {
         raw_text = &raw_text[1..(raw_text.len() - 1)];
     }
-    Ok(Code {
-        range,
-        code: raw_text.to_string(),
-    }
-    .into())
+    Ok(Node::code(range, raw_text.to_string()).into())
 }
 
 fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
@@ -228,9 +185,9 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         Tag::Item => parse_item(range, iter),
         Tag::FootnoteDefinition(str) => parse_footnote_def(str, range, iter),
         Tag::Table(alignments) => parse_table(alignments, range, iter),
-        Tag::TableHead => parse_table_head(range, iter).map(|h| h.into()),
-        Tag::TableRow => parse_table_row(range, iter).map(|r| r.into()),
-        Tag::TableCell => parse_table_cell(range, iter).map(|c| c.into()),
+        // Tag::TableHead => parse_table_head(range, iter).map(|h| h.into()),
+        // Tag::TableRow => parse_table_row(range, iter).map(|r| r.into()),
+        // Tag::TableCell => parse_table_cell(range, iter).map(|c| c.into()),
         Tag::Emphasis => parse_text_decor(TextDecorationKind::Emphasis, range, iter),
         Tag::Strong => parse_text_decor(TextDecorationKind::Strong, range, iter),
         Tag::Strikethrough => parse_text_decor(TextDecorationKind::Strikethrough, range, iter),
@@ -267,11 +224,11 @@ fn parse_image(
         }
     }
     match link_type {
-        LinkType::Inline => Ok(InlineImage::new(range).into()),
+        LinkType::Inline => Ok(Node::inlineimage(range).into()),
         LinkType::Reference
         | LinkType::ReferenceUnknown
         | LinkType::Collapsed
-        | LinkType::CollapsedUnknown => Ok(ReferenceImage::new(range).into()),
+        | LinkType::CollapsedUnknown => Ok(Node::referenceimage(range).into()),
         _ => Err(eyre!("not implemented yet")),
     }
 }
@@ -293,25 +250,58 @@ fn parse_link(
         }
     }
 
+    // match link_type {
+    //     LinkType::WikiLink { has_pothole } => {
+
+    //     },
+    //     LinkType::Inline => {
+
+    //     }
+
+    //     // not implemented yet
+    //     LinkType::Reference
+    //     | LinkType::ReferenceUnknown
+    //     | LinkType::Collapsed
+    //     | LinkType::CollapsedUnknown
+    //     | LinkType::Shortcut
+    //     | LinkType::ShortcutUnknown => todo!(),
+    // }
+
     match link_type {
-        LinkType::Inline => Ok(InlineLink::new(
-            range,
-            children,
-            dest_url.to_string(),
-            Some(title.to_string()),
-        )
-        .into()),
+        LinkType::Inline => {
+            // the children are the title
+            let mut title = String::new();
+
+            for event in children {
+                match &event {
+                    Node::Text { text, range } => title.push_str(&text.to_string()),
+                    Node::TextDecoration {
+                        kind,
+                        content,
+                        range,
+                    } => title.push_str(&content),
+                    Node::Code { code, range } => title.push_str(&code),
+
+                    _ => panic!(
+                        "parser encounter unexpected event when parsing link: {:?}",
+                        event
+                    ),
+                }
+            }
+
+            Ok(Node::inlinelink(range, title, dest_url.to_string()).into())
+        }
+        LinkType::Autolink | LinkType::Email => {
+            Ok(Node::autolink(range, dest_url.to_string()).into())
+        }
+        LinkType::WikiLink { .. } => Ok(Node::wikilink(range, children).into()),
+        // not implemented
         LinkType::Reference
         | LinkType::ReferenceUnknown
         | LinkType::Collapsed
-        | LinkType::CollapsedUnknown => {
-            Ok(ReferenceLink::new(range, children, "todo".into()).into())
-        }
-        LinkType::Shortcut | LinkType::ShortcutUnknown => {
-            Ok(ShortcutLink::new(range, children).into())
-        }
-        LinkType::Autolink | LinkType::Email => Ok(AutoLink::new(range, children).into()),
-        LinkType::WikiLink { .. } => Ok(WikiLink::new(range, children).into()),
+        | LinkType::Shortcut
+        | LinkType::ShortcutUnknown
+        | LinkType::CollapsedUnknown => unimplemented!(),
     }
 }
 
@@ -322,25 +312,31 @@ fn parse_text_decor(
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    let mut children = Vec::new();
+    let mut content = String::new();
+
+    let target_end = match kind {
+        TextDecorationKind::Emphasis => TagEnd::Emphasis,
+        TextDecorationKind::Strong => TagEnd::Strong,
+        TextDecorationKind::Strikethrough => TagEnd::Strikethrough,
+        TextDecorationKind::Superscript => TagEnd::Superscript,
+        TextDecorationKind::Subscript => TagEnd::Subscript,
+    };
 
     while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::Emphasis) => break,
-            Event::End(TagEnd::Strong) => break,
-            Event::End(TagEnd::Strikethrough) => break,
-            Event::End(TagEnd::Superscript) => break,
-            Event::End(TagEnd::Subscript) => break,
-            _ => children.push(parse_event(event, range, iter)?),
+        if let Event::End(tag) = event {
+            if tag == target_end {
+                break;
+            }
+        }
+
+        if let Event::Text(text) = event {
+            content = text.to_string();
+        } else {
+            return Err(eyre!("unexpected event!: {:?}", event));
         }
     }
 
-    Ok(TextDecoration {
-        range,
-        kind,
-        children,
-    }
-    .into())
+    Ok(Node::textdecoration(range, kind, content).into())
 }
 
 fn parse_table_cell(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<TableCell> {
@@ -391,7 +387,7 @@ fn parse_table(
         }
     }
 
-    Ok(Table::new(
+    Ok(Node::table(
         range,
         header,
         alignments
@@ -438,7 +434,7 @@ fn parse_footnote_def(
         }
     }
 
-    Ok(FootnoteDefinition::new(range, name.to_string(), children).into())
+    Ok(Node::footnotedefinition(range, name.to_string(), children).into())
 }
 
 fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -456,7 +452,7 @@ fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node
         }
     }
 
-    Ok(Item::new(range, children, sub_lists).into())
+    Ok(Node::item(range, children, sub_lists).into())
 }
 
 fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -469,7 +465,7 @@ fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>
         }
     }
 
-    Ok(List::new(range, n, children).into())
+    Ok(Node::list(range, n, children).into())
 }
 
 fn parse_htmlblock(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -482,7 +478,7 @@ fn parse_htmlblock(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result
         }
     }
 
-    Ok(Html::new(range, "TODO".into()).into())
+    Ok(Node::html(range, "TODO".into()).into())
 }
 
 fn parse_code_block(
@@ -508,7 +504,7 @@ fn parse_code_block(
         }
     };
 
-    Ok(CodeBlock::new(range, tag, is_fenced, children).into())
+    Ok(Node::codeblock(range, tag, is_fenced, children).into())
 }
 
 fn parse_blockquote(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -521,7 +517,7 @@ fn parse_blockquote(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
         }
     }
 
-    Ok(BlockQuote::new(range, children).into())
+    Ok(Node::blockquote(range, children).into())
 }
 
 fn parse_paragraph(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -534,7 +530,7 @@ fn parse_paragraph(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result
         }
     }
 
-    Ok(Paragraph::new(range, children).into())
+    Ok(Node::paragraph(range, children).into())
 }
 
 fn parse_heading(
@@ -559,17 +555,17 @@ fn parse_heading(
         }
     }
 
-    Ok(Heading {
-        id: id.map(|s| s.to_string()),
+    Ok(Node::heading(
         range,
-        level: level as u8,
-        content: heading_content,
-        classes: classes.iter().map(|s| s.to_string()).collect(),
-        attributes: attrs
+        id.map(|s| s.to_string()),
+        classes.iter().map(|s| s.to_string()).collect(),
+        attrs
             .iter()
             .map(|(k, v)| (k.to_string(), v.as_ref().map(|s| s.to_string())))
             .collect(),
-    }
+        level as u8,
+        heading_content,
+    )
     .into())
 }
 

@@ -4,16 +4,12 @@ expression: res
 input_file: tests/input_files/heading.md
 ---
 - ~
-- range:
-    start: 0
-    end: 30
-  children:
-    - Heading:
-        id: ~
-        classes: []
-        attributes: []
-        range:
-          start: 0
-          end: 30
-        level: 1
-        content: this is a heading on level 1
+- - Heading:
+      range:
+        start: 0
+        end: 30
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: this is a heading on level 1

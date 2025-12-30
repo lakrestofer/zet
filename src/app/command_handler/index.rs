@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use sql_minifier::macros::minify_sql as sql;
 use std::ops::Range;
 use zet::core::db::DbUpdate;
+use zet::core::parser::ast_nodes::{TableCell, TableHead, TableRow};
 use zet::core::path_to_id;
 use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
 use zet::preamble::*;
@@ -36,9 +37,14 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     );
 
     let removed_ids = removed.iter().map(|r| r.0.as_str()).collect();
+    let updated_ids = updated
+        .iter()
+        .map(|(id, _, _, _, _)| id.0.as_str())
+        .collect();
 
     // we delete old data
-    delete_documents(&mut db, &removed_ids)?; // other data will automatically be deleted as well (on delete cascade)
+    delete_documents(&mut db, &removed_ids)?;
+    delete_nodes(&mut db, &updated_ids)?;
 
     // parse and collect the data to be inserted into the db
     let mut documents = Vec::with_capacity(new.len() + updated.len());
@@ -62,177 +68,208 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
 
     Document::update(db, db_documents)?;
 
-    // let links = Vec::new();
-    // for (id, nodes) in db_nodes {
-    //     let node_ids = db_insert_nodes(db, id, &nodes)?;
-
-    //     for (node_id, node) in node_ids.into_iter().zip(nodes.into_iter()) {
-    //         match node {
-    //             ast_nodes::Node::InlineLink(inline_link) => {}
-    //             ast_nodes::Node::WikiLink(wiki_link) => todo!(),
-    //             _ => {}
-    //         }
-    //     }
-    // }
+    for (id, nodes) in db_nodes {
+        let node_ids = db_insert_nodes(db, id, &nodes)?;
+    }
 
     Ok(())
 }
 
-fn build_db_nodes(
+fn build_db_nodes<'a>(
     parent: Option<usize>,
-    nodes: &Vec<ast_nodes::Node>,
-    db_nodes: &mut Vec<(NodeKind, Range<usize>, Option<usize>, serde_json::Value)>,
+    nodes: &'a Vec<ast_nodes::Node>,
+    db_nodes: &mut Vec<(NodeKind, &'a Range<usize>, Option<usize>, serde_json::Value)>,
 ) {
     for node in nodes {
-        use ast_nodes::{Node::*, *};
+        use ast_nodes::Node::*;
         let kind = node.kind();
-        let range = node.range().to_owned();
 
         match node {
-            Document(d) => {
+            Paragraph { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &d.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            Paragraph(p) => {
+            BlockQuote { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &p.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            BlockQuote(q) => {
-                db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &q.children, db_nodes);
-            }
-            Heading(h) => {
-                let iter = h
-                    .attributes
+            Heading {
+                id,
+                classes,
+                attributes,
+                level,
+                content,
+                range,
+            } => {
+                let iter = attributes
                     .iter()
                     .map(|(k, v)| (k.to_owned(), serde_json::to_value(v.to_owned()).unwrap()));
                 let map = serde_json::Map::from_iter(iter);
                 let data = json!({
-                   "id": h.id,
-                   "content": h.content,
-                   "classes": h.classes,
+                   "id": id,
+                   "content": content,
+                   "classes": classes,
                    "attributes": map,
-                   "level": h.level
+                   "level": level
                 });
                 db_nodes.push((kind, range, parent, data));
             }
-            Text(_) => {
+            Text { text: _, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
             }
-            TextDecoration(td) => {
+            TextDecoration {
+                kind: decor_kind,
+                content,
+                range,
+            } => {
                 let data = json!({
-                    "kind": td.kind,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &td.children, db_nodes);
-            }
-            Html(html) => {
-                let data = json!({
-                    "text": html.text,
+                    "kind": decor_kind,
                 });
                 db_nodes.push((kind, range, parent, (data)));
             }
-            FootnoteReference(fr) => {
+            Html { text, range } => {
                 let data = json!({
-                    "name": fr.name,
+                    "text": text,
                 });
                 db_nodes.push((kind, range, parent, (data)));
             }
-            FootnoteDefinition(fd) => {
+            FootnoteReference { name, range } => {
                 let data = json!({
-                    "name": fd.name,
+                    "name": name,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &fd.children, db_nodes);
             }
-            InlineLink(il) => {
+            FootnoteDefinition {
+                name,
+                children,
+                range,
+            } => {
                 let data = json!({
-                    "url": il.url,
-                    "title": il.title,
+                    "name": name,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &il.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            ReferenceLink(rl) => {
+            InlineLink {
+                title,
+                target,
+                range,
+            } => {
                 let data = json!({
-                    "reference": rl.reference,
+                    "target": target,
+                    "title": title,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &rl.children, db_nodes);
             }
-            ShortcutLink(sl) => {
+            ReferenceLink {
+                children,
+                reference,
+                range,
+            } => {
+                let data = json!({
+                    "reference": reference,
+                });
+                db_nodes.push((kind, range, parent, (data)));
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
+            }
+            ShortcutLink { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &sl.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            AutoLink(al) => {
+            AutoLink { target, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &al.children, db_nodes);
+                // build_db_nodes(Some(db_nodes.len() - 1), &al., db_nodes);
             }
-            WikiLink(wl) => {
+            WikiLink { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &wl.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            LinkReference(lr) => {
+            LinkReference {
+                name,
+                link,
+                title,
+                range,
+            } => {
                 let data = json!({
-                    "name": lr.name,
-                    "link": lr.link,
-                    "title": lr.title,
+                    "name": name,
+                    "link": link,
+                    "title": title,
                 });
                 db_nodes.push((kind, range, parent, (data)));
             }
-            InlineImage(_) => db_nodes.push((kind, range, parent, Default::default())),
-            ReferenceImage(_ri) => db_nodes.push((kind, range, parent, Default::default())),
-            List(l) => {
+            InlineImage { range } => db_nodes.push((kind, range, parent, Default::default())),
+            ReferenceImage { range } => db_nodes.push((kind, range, parent, Default::default())),
+            List {
+                start_index,
+                children,
+                range,
+            } => {
                 db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), &l.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            Item(i) => {
+            Item {
+                children,
+                sub_lists,
+                range,
+            } => {
                 db_nodes.push((kind, range, parent, Default::default()));
                 let id = db_nodes.len() - 1;
-                build_db_nodes(Some(id), &i.children, db_nodes);
-                build_db_nodes(Some(id), &i.sub_lists, db_nodes);
+                build_db_nodes(Some(id), &children, db_nodes);
+                build_db_nodes(Some(id), &sub_lists, db_nodes);
             }
-            TaskListMarker(tlm) => {
-                let data = json!({"checked": tlm.is_checked});
+            TaskListMarker { is_checked, range } => {
+                let data = json!({"checked": is_checked});
                 db_nodes.push((kind, range, parent, (data)));
                 // let id = db_nodes.len() - 1;
                 // build_db_nodes(Some(id), ltm., db_nodes);
             }
-            Code(code) => {
-                let data = json!({"code": code.code});
+            Code { code, range } => {
+                let data = json!({"code": code});
                 db_nodes.push((kind, range, parent, (data)));
             }
-            CodeBlock(cb) => {
+            CodeBlock {
+                tag,
+                is_fenced,
+                children,
+                range,
+            } => {
                 let data = json!({
-                    "tag": cb.tag,
-                    "is_fenced": cb.is_fenced,
+                    "tag": tag,
+                    "is_fenced": is_fenced,
                 });
                 db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), &cb.children, db_nodes);
+                build_db_nodes(Some(db_nodes.len() - 1), &children, db_nodes);
             }
-            HorizontalRule(_) => db_nodes.push((kind, range, parent, Default::default())),
-            Table(table) => {
+            HorizontalRule { range } => db_nodes.push((kind, range, parent, Default::default())),
+            Table {
+                header,
+                column_alignment,
+                rows,
+                range,
+            } => {
                 let data = json!({
-                    "header": table.header,
-                    "rows": table.rows,
+                    "header": header,
+                    "rows": rows,
                 });
                 db_nodes.push((kind, range, parent, (data)));
             }
-            DisplayMath(dm) => {
+            DisplayMath { text, range } => {
                 let data = json!({
-                    "text": dm.text,
+                    "text": text,
                 });
                 db_nodes.push((kind, range, parent, (data)));
             }
-            InlineMath(im) => {
+            InlineMath { text, range } => {
                 let data = json!({
-                    "text": im.text,
+                    "text": text,
                 });
                 db_nodes.push((kind, range, parent, (data)));
             }
-            TableHead(_) | TableRow(_) | TableCell(_) => {
-                panic!("should not be able to reach this!")
-            }
+            // TableHead { range: _, cells }
+            // | TableRow { range: _, cells }
+            // | TableCell { range: _, children } => {
+            //     panic!("should not be able to reach this!")
+            // }
             // NotImplemented(_) => todo!(),
             // SoftBreak(soft_break) => todo!(),
             // HardBreak(hard_break) => todo!(),
@@ -354,7 +391,7 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
         let frontmatter = frontmatter.unwrap_or(serde_json::Value::Null);
 
         let title = extract_title_from_frontmatter(&frontmatter)
-            .or_else(|| extract_title_from_ast(&document.children))
+            .or_else(|| extract_title_from_ast(&document))
             .unwrap_or("".into());
 
         document_data.push(DocumentData {
@@ -367,12 +404,13 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
                 created,
                 data: frontmatter,
             },
-            content: document.children,
+            content: document,
         })
     }
 
     Ok(document_data)
 }
+
 fn process_existing_documents(
     config: &Config,
     updated: Vec<(
@@ -395,7 +433,7 @@ fn process_existing_documents(
         )?;
         let frontmatter = frontmatter.unwrap_or(Value::Null);
         let title = extract_title_from_frontmatter(&frontmatter)
-            .or_else(|| extract_title_from_ast(&document.children))
+            .or_else(|| extract_title_from_ast(&document))
             .unwrap_or("".into());
 
         document_data.push(DocumentData {
@@ -408,7 +446,7 @@ fn process_existing_documents(
                 created,
                 data: frontmatter,
             },
-            content: document.children,
+            content: document,
         })
     }
 
@@ -424,6 +462,18 @@ fn delete_documents(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
     let tx = db.transaction()?;
     {
         let mut query = tx.prepare(sql!("delete from document where id = ?"))?;
+        for id in document_ids {
+            query.execute([id])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+fn delete_nodes(db: &mut DB, document_ids: &Vec<&str>) -> Result<()> {
+    let tx = db.transaction()?;
+    {
+        let mut query = tx.prepare(sql!("delete from node where document_id = ?"))?;
         for id in document_ids {
             query.execute([id])?;
         }

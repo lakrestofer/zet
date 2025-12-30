@@ -4,87 +4,83 @@ expression: res
 input_file: tests/input_files/footnote.md
 ---
 - ~
-- range:
-    start: 0
-    end: 206
-  children:
-    - Heading:
-        id: ~
-        classes: []
-        attributes: []
-        range:
-          start: 0
-          end: 12
-        level: 1
-        content: footnotes
-    - Paragraph:
-        range:
-          start: 13
-          end: 84
-        children:
-          - Text:
-              range:
-                start: 13
-                end: 76
-              text: "a footnote is a reference that is defined later. it works like "
-          - FootnoteReference:
-              range:
-                start: 76
-                end: 83
-              name: this
-    - Paragraph:
-        range:
-          start: 85
-          end: 120
-        children:
-          - Text:
-              range:
-                start: 85
-                end: 109
-              text: "footnotes may have more "
-          - FootnoteReference:
-              range:
-                start: 109
-                end: 119
-              name: content
-    - Heading:
-        id: ~
-        classes: []
-        attributes: []
-        range:
-          start: 121
-          end: 135
-        level: 2
-        content: references
-    - FootnoteDefinition:
-        range:
-          start: 136
-          end: 165
-        name: this
-        children:
-          - Paragraph:
-              range:
-                start: 145
-                end: 164
-              children:
-                - Text:
-                    range:
-                      start: 145
-                      end: 163
-                    text: this is a footnote
-    - FootnoteDefinition:
-        range:
-          start: 165
-          end: 206
-        name: content
-        children:
-          - Paragraph:
-              range:
-                start: 177
-                end: 206
-              children:
-                - Text:
-                    range:
-                      start: 177
-                      end: 206
-                    text: it may have more content like
+- - Heading:
+      range:
+        start: 0
+        end: 12
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: footnotes
+  - Paragraph:
+      range:
+        start: 13
+        end: 84
+      children:
+        - Text:
+            range:
+              start: 13
+              end: 76
+            text: "a footnote is a reference that is defined later. it works like "
+        - FootnoteReference:
+            range:
+              start: 76
+              end: 83
+            name: this
+  - Paragraph:
+      range:
+        start: 85
+        end: 120
+      children:
+        - Text:
+            range:
+              start: 85
+              end: 109
+            text: "footnotes may have more "
+        - FootnoteReference:
+            range:
+              start: 109
+              end: 119
+            name: content
+  - Heading:
+      range:
+        start: 121
+        end: 135
+      id: ~
+      classes: []
+      attributes: []
+      level: 2
+      content: references
+  - FootnoteDefinition:
+      range:
+        start: 136
+        end: 165
+      name: this
+      children:
+        - Paragraph:
+            range:
+              start: 145
+              end: 164
+            children:
+              - Text:
+                  range:
+                    start: 145
+                    end: 163
+                  text: this is a footnote
+  - FootnoteDefinition:
+      range:
+        start: 165
+        end: 206
+      name: content
+      children:
+        - Paragraph:
+            range:
+              start: 177
+              end: 206
+            children:
+              - Text:
+                  range:
+                    start: 177
+                    end: 206
+                  text: it may have more content like
