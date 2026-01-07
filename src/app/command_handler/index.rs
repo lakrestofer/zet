@@ -68,7 +68,14 @@ fn db_insert(db: &mut DB, documents: Vec<DocumentData>) -> Result<()> {
     Document::update(db, db_documents)?;
 
     for (id, nodes) in db_nodes {
-        let _node_ids = db_insert_nodes(db, id, &nodes)?;
+        let node_ids = db_insert_nodes(db, id, &nodes)?;
+
+        // TODO finish insertion of links into db
+        // let links = node_ids.into_iter().zip(nodes.into_iter()).filter_map(|(node_id, node)| match node {
+        //     ast_nodes::Node::InlineLink { range, title, target } => todo!(),
+        //     ast_nodes::Node::WikiLink { range, children } => todo!(),
+        //     _ => None
+        // })
     }
 
     Ok(())
@@ -81,9 +88,83 @@ fn build_db_nodes<'a>(
 ) {
     for node in nodes {
         use ast_nodes::Node::*;
+
         let kind = node.kind();
 
+        // todo
+        // - move out data our here
+        // - conditionally remove more field in the container nodes
+
+        // we have two kinds of nodes, the container nodes, and leaf nodes
         match node {
+            // leaf nodes
+            SoftBreak { range, .. }
+            | HardBreak { range, .. }
+            | Text { range, .. }
+            | TextDecoration { range, .. }
+            | Html { range, .. }
+            | InlineLink { range, .. }
+            | ReferenceLink { range, .. }
+            | ShortcutLink { range, .. }
+            | AutoLink { range, .. }
+            | LinkReference { range, .. }
+            | InlineImage { range, .. }
+            | ReferenceImage { range, .. }
+            | Code { range, .. }
+            | HorizontalRule { range, .. }
+            | DisplayMath { range, .. }
+            | InlineMath { range, .. }
+            | FootnoteReference { range, .. } => {
+                let data = node.inner_json_data();
+                db_nodes.push((kind, range, parent, data.into()));
+            }
+            FootnoteDefinition { range, id, target } => {
+                db_nodes.push((
+                    kind,
+                    range,
+                    parent,
+                    json!({
+                        "id": id,
+                        "target": target,
+                    }),
+                ));
+            }
+            WikiLink {
+                range,
+                title,
+                target,
+            } => {
+                db_nodes.push((
+                    kind,
+                    range,
+                    parent,
+                    json!({"title": title, "target": target}),
+                ));
+            }
+            // container nodes. We have those with metadata and without
+            Heading {
+                range,
+                id,
+                classes,
+                attributes,
+                level,
+                content,
+                children,
+            } => {
+                db_nodes.push((
+                    kind,
+                    range,
+                    parent,
+                    json!({
+                        "id": id,
+                        "classes": classes,
+                        "attributes": attributes,
+                        "level": level,
+                        "content": content
+                    }),
+                ));
+                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
+            }
             Paragraph { children, range } => {
                 db_nodes.push((kind, range, parent, Default::default()));
                 build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
@@ -92,112 +173,6 @@ fn build_db_nodes<'a>(
                 db_nodes.push((kind, range, parent, Default::default()));
                 build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
             }
-            Heading {
-                id,
-                classes,
-                attributes,
-                level,
-                content,
-                range,
-            } => {
-                let iter = attributes
-                    .iter()
-                    .map(|(k, v)| (k.to_owned(), serde_json::to_value(v.to_owned()).unwrap()));
-                let map = serde_json::Map::from_iter(iter);
-                let data = json!({
-                   "id": id,
-                   "content": content,
-                   "classes": classes,
-                   "attributes": map,
-                   "level": level
-                });
-                db_nodes.push((kind, range, parent, data));
-            }
-            Text { text: _, range } => {
-                db_nodes.push((kind, range, parent, Default::default()));
-            }
-            TextDecoration {
-                kind: decor_kind,
-                content: _,
-                range,
-            } => {
-                let data = json!({
-                    "kind": decor_kind,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            Html { text, range } => {
-                let data = json!({
-                    "text": text,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            FootnoteReference { name, range } => {
-                let data = json!({
-                    "name": name,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            FootnoteDefinition {
-                name,
-                children,
-                range,
-            } => {
-                let data = json!({
-                    "name": name,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
-            }
-            InlineLink {
-                title,
-                target,
-                range,
-            } => {
-                let data = json!({
-                    "target": target,
-                    "title": title,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            ReferenceLink {
-                children,
-                reference,
-                range,
-            } => {
-                let data = json!({
-                    "reference": reference,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
-            }
-            ShortcutLink { children, range } => {
-                db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
-            }
-            AutoLink { target: _, range } => {
-                db_nodes.push((kind, range, parent, Default::default()));
-                // build_db_nodes(Some(db_nodes.len() - 1), &al., db_nodes);
-            }
-            WikiLink { children, range } => {
-                db_nodes.push((kind, range, parent, Default::default()));
-                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
-            }
-            LinkReference {
-                name,
-                link,
-                title,
-                range,
-            } => {
-                let data = json!({
-                    "name": name,
-                    "link": link,
-                    "title": title,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            InlineImage { range } => db_nodes.push((kind, range, parent, Default::default())),
-            ReferenceImage { range } => db_nodes.push((kind, range, parent, Default::default())),
             List {
                 start_index: _,
                 children,
@@ -208,77 +183,37 @@ fn build_db_nodes<'a>(
             }
             Item {
                 children,
+                // TODO include this in the metadata
+                task_list_marker: _,
                 sub_lists,
                 range,
             } => {
+                // TODO. Maybe include number of items in added metadata?
                 db_nodes.push((kind, range, parent, Default::default()));
                 let id = db_nodes.len() - 1;
                 build_db_nodes(Some(id), children, db_nodes);
                 build_db_nodes(Some(id), sub_lists, db_nodes);
             }
-            TaskListMarker { is_checked, range } => {
-                let data = json!({"checked": is_checked});
-                db_nodes.push((kind, range, parent, (data)));
-                // let id = db_nodes.len() - 1;
-                // build_db_nodes(Some(id), ltm., db_nodes);
-            }
-            Code { code, range } => {
-                let data = json!({"code": code});
-                db_nodes.push((kind, range, parent, (data)));
-            }
             CodeBlock {
+                range,
                 tag,
-                is_fenced,
+                is_fenced: _,
                 children,
-                range,
             } => {
-                let data = json!({
-                    "tag": tag,
-                    "is_fenced": is_fenced,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-                build_db_nodes(Some(db_nodes.len() - 1), children, db_nodes);
+                db_nodes.push((kind, range, parent, json!({"tag": tag})));
+                let id = db_nodes.len() - 1;
+                build_db_nodes(Some(id), children, db_nodes);
             }
-            HorizontalRule { range } => db_nodes.push((kind, range, parent, Default::default())),
             Table {
-                header,
-                column_alignment: _,
-                rows,
                 range,
+                header: _,
+                column_alignment: _,
+                rows: _,
             } => {
-                let data = json!({
-                    "header": header,
-                    "rows": rows,
-                });
-                db_nodes.push((kind, range, parent, (data)));
+                db_nodes.push((kind, range, parent, Default::default()));
+                // TODO how should we represent tables in the db such that we may query?
             }
-            DisplayMath { text, range } => {
-                let data = json!({
-                    "text": text,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            InlineMath { text, range } => {
-                let data = json!({
-                    "text": text,
-                });
-                db_nodes.push((kind, range, parent, (data)));
-            }
-            // TableHead { range: _, cells }
-            // | TableRow { range: _, cells }
-            // | TableCell { range: _, children } => {
-            //     panic!("should not be able to reach this!")
-            // }
-            // NotImplemented(_) => todo!(),
-            // SoftBreak(soft_break) => todo!(),
-            // HardBreak(hard_break) => todo!(),
-            _ => {}
         }
-
-        // let data = serde_json::to_value(n).unwrap_or_else(|e| {
-        //     log::error!("could not convert node to json representation: {:?}", e);
-        //     serde_json::Value::Null
-        // });
     }
 }
 

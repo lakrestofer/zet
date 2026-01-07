@@ -13,38 +13,39 @@ input_file: tests/input_files/math.md
       attributes: []
       level: 1
       content: math
-  - Paragraph:
-      range:
-        start: 8
-        end: 47
       children:
-        - Text:
+        - Paragraph:
             range:
               start: 8
-              end: 33
-            text: "here is some inline math "
-        - InlineMath:
-            range:
-              start: 33
-              end: 46
-            text: "\\frac{1}{2}"
-  - Paragraph:
-      range:
-        start: 48
-        end: 78
-      children:
-        - Text:
+              end: 47
+            children:
+              - Text:
+                  range:
+                    start: 8
+                    end: 33
+                  text: "here is some inline math "
+              - InlineMath:
+                  range:
+                    start: 33
+                    end: 46
+                  text: "\\frac{1}{2}"
+        - Paragraph:
             range:
               start: 48
-              end: 77
-            text: and here is some display math
-  - Paragraph:
-      range:
-        start: 79
-        end: 96
-      children:
-        - DisplayMath:
+              end: 78
+            children:
+              - Text:
+                  range:
+                    start: 48
+                    end: 77
+                  text: and here is some display math
+        - Paragraph:
             range:
               start: 79
               end: 96
-            text: "\n\\frac{1}{2}\n"
+            children:
+              - DisplayMath:
+                  range:
+                    start: 79
+                    end: 96
+                  text: "\n\\frac{1}{2}\n"

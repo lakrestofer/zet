@@ -1,4 +1,4 @@
-
+#![feature(trait_alias)]
 pub mod core;
 
 pub const APP_NAME: &str = "zet";

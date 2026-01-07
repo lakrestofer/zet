@@ -13,36 +13,37 @@ input_file: tests/input_files/footnote.md
       attributes: []
       level: 1
       content: footnotes
-  - Paragraph:
-      range:
-        start: 13
-        end: 84
       children:
-        - Text:
+        - Paragraph:
             range:
               start: 13
-              end: 76
-            text: "a footnote is a reference that is defined later. it works like "
-        - FootnoteReference:
-            range:
-              start: 76
-              end: 83
-            name: this
-  - Paragraph:
-      range:
-        start: 85
-        end: 120
-      children:
-        - Text:
+              end: 84
+            children:
+              - Text:
+                  range:
+                    start: 13
+                    end: 76
+                  text: "a footnote is a reference that is defined later. it works like "
+              - FootnoteReference:
+                  range:
+                    start: 76
+                    end: 83
+                  name: this
+        - Paragraph:
             range:
               start: 85
-              end: 109
-            text: "footnotes may have more "
-        - FootnoteReference:
-            range:
-              start: 109
-              end: 119
-            name: content
+              end: 120
+            children:
+              - Text:
+                  range:
+                    start: 85
+                    end: 109
+                  text: "footnotes may have more "
+              - FootnoteReference:
+                  range:
+                    start: 109
+                    end: 119
+                  name: content
   - Heading:
       range:
         start: 121
@@ -52,35 +53,16 @@ input_file: tests/input_files/footnote.md
       attributes: []
       level: 2
       content: references
-  - FootnoteDefinition:
-      range:
-        start: 136
-        end: 165
-      name: this
       children:
-        - Paragraph:
+        - FootnoteDefinition:
             range:
-              start: 145
-              end: 164
-            children:
-              - Text:
-                  range:
-                    start: 145
-                    end: 163
-                  text: this is a footnote
-  - FootnoteDefinition:
-      range:
-        start: 165
-        end: 206
-      name: content
-      children:
-        - Paragraph:
+              start: 136
+              end: 165
+            id: this
+            target: this is a footnote
+        - FootnoteDefinition:
             range:
-              start: 177
+              start: 165
               end: 206
-            children:
-              - Text:
-                  range:
-                    start: 177
-                    end: 206
-                  text: it may have more content like
+            id: content
+            target: it may have more content like

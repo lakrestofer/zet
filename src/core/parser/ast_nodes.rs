@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 pub type Range = std::ops::Range<usize>;
 
@@ -25,17 +26,19 @@ pub enum ColumnAlignment {
     Right,
 }
 
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
+pub enum TaskListMarker {
+    // - some list
+    NoCheckmark,
+    // - [ ] some list
+    UnChecked,
+    // - [x] some list
+    Checked,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Node {
-    NotImplemented {
-        range: Range,
-    },
-    SoftBreak {
-        range: Range,
-    },
-    HardBreak {
-        range: Range,
-    },
+    // container nodes
     Heading {
         range: Range,
         id: Option<String>,
@@ -43,6 +46,7 @@ pub enum Node {
         attributes: Vec<(String, Option<String>)>,
         level: u8,
         content: String,
+        children: Vec<Node>,
     },
     Paragraph {
         range: Range,
@@ -51,6 +55,41 @@ pub enum Node {
     BlockQuote {
         range: Range,
         children: Vec<Node>,
+    },
+    List {
+        range: Range,
+        start_index: Option<u64>,
+        children: Vec<Node>,
+    },
+    Item {
+        range: Range,
+        task_list_marker: TaskListMarker,
+        children: Vec<Node>,
+        sub_lists: Vec<Node>,
+    },
+    CodeBlock {
+        range: Range,
+        tag: Option<String>,
+        is_fenced: bool,
+        children: Vec<Node>,
+    },
+    Table {
+        range: Range,
+        header: TableHead,
+        column_alignment: Vec<ColumnAlignment>,
+        rows: Vec<TableRow>,
+    },
+    // leaf nodes
+    SoftBreak {
+        range: Range,
+    },
+    HardBreak {
+        range: Range,
+    },
+    FootnoteDefinition {
+        range: Range,
+        id: String,
+        target: String,
     },
     Text {
         range: Range,
@@ -69,24 +108,27 @@ pub enum Node {
         range: Range,
         name: String,
     },
-    FootnoteDefinition {
-        range: Range,
-        name: String,
-        children: Vec<Node>,
-    },
     InlineLink {
         range: Range,
         title: String,
         target: String,
     },
+    /// [foo][bar]
+    ///
+    /// [bar]: <https://some.url>
     ReferenceLink {
         range: Range,
-        children: Vec<Node>,
-        reference: String,
+        title: String,
+        id: String,
+        target: String,
     },
+    /// [bar]
+    ///
+    /// [bar]: <https://some.url>
     ShortcutLink {
         range: Range,
-        children: Vec<Node>,
+        id: String,
+        target: String,
     },
     /// <www.foo.bar>
     AutoLink {
@@ -96,7 +138,8 @@ pub enum Node {
     /// `[[foo|bar]]`
     WikiLink {
         range: Range,
-        children: Vec<Node>,
+        title: String,
+        target: String,
     },
 
     LinkReference {
@@ -111,38 +154,12 @@ pub enum Node {
     ReferenceImage {
         range: Range,
     },
-    List {
-        range: Range,
-        start_index: Option<u64>,
-        children: Vec<Node>,
-    },
-    Item {
-        range: Range,
-        children: Vec<Node>,
-        sub_lists: Vec<Node>,
-    },
-    TaskListMarker {
-        range: Range,
-        is_checked: bool,
-    },
     Code {
         range: Range,
         code: String,
     },
-    CodeBlock {
-        range: Range,
-        tag: Option<String>,
-        is_fenced: bool,
-        children: Vec<Node>,
-    },
     HorizontalRule {
         range: Range,
-    },
-    Table {
-        range: Range,
-        header: TableHead,
-        column_alignment: Vec<ColumnAlignment>,
-        rows: Vec<TableRow>,
     },
     DisplayMath {
         range: Range,
@@ -155,91 +172,64 @@ pub enum Node {
 }
 
 impl Node {
-    pub fn range(&self) -> Range {
-        let range = match self {
-            Node::NotImplemented { range } => range,
-            Node::SoftBreak { range } => range,
-            Node::HardBreak { range } => range,
-            Node::Heading {
-                range,
-                id: _,
-                classes: _,
-                attributes: _,
-                level: _,
-                content: _,
-            } => range,
-            Node::Paragraph { range, children: _ } => range,
-            Node::BlockQuote { range, children: _ } => range,
-            Node::Text { range, text: _ } => range,
-            Node::TextDecoration {
-                range,
-                kind: _,
-                content: _,
-            } => range,
-            Node::Html { range, text: _ } => range,
-            Node::FootnoteReference { range, name: _ } => range,
-            Node::FootnoteDefinition {
-                range,
-                name: _,
-                children: _,
-            } => range,
-            Node::InlineLink {
-                range,
-                title: _,
-                target: _,
-            } => range,
-            Node::ReferenceLink {
-                range,
-                children: _,
-                reference: _,
-            } => range,
-            Node::ShortcutLink { range, children: _ } => range,
-            Node::AutoLink { range, target: _ } => range,
-            Node::WikiLink { range, children: _ } => range,
-            Node::LinkReference {
-                range,
-                name: _,
-                link: _,
-                title: _,
-            } => range,
-            Node::InlineImage { range } => range,
-            Node::ReferenceImage { range } => range,
-            Node::List {
-                range,
-                start_index: _,
-                children: _,
-            } => range,
-            Node::Item {
-                range,
-                children: _,
-                sub_lists: _,
-            } => range,
-            Node::TaskListMarker { range, is_checked: _ } => range,
-            Node::Code { range, code: _ } => range,
-            Node::CodeBlock {
-                range,
-                tag: _,
-                is_fenced: _,
-                children: _,
-            } => range,
-            Node::HorizontalRule { range } => range,
-            Node::Table {
-                range,
-                header: _,
-                column_alignment: _,
-                rows: _,
-            } => range,
-            Node::DisplayMath { range, text: _ } => range,
-            Node::InlineMath { range, text: _ } => range,
+    // pub fn range(&self) -> Range {
+    //     let range = match self {
+    //         Node::NotImplemented { range } => range,
+    //         Node::SoftBreak { range } => range,
+    //         Node::HardBreak { range } => range,
+    //         Node::Heading { range, .. } => range,
+    //         Node::Paragraph { range, .. } => range,
+    //         Node::BlockQuote { range, .. } => range,
+    //         Node::Text { range, .. } => range,
+    //         Node::TextDecoration { range, .. } => range,
+    //         Node::Html { range, .. } => range,
+    //         Node::FootnoteReference { range, .. } => range,
+    //         Node::FootnoteDefinition { range, .. } => range,
+    //         Node::InlineLink { range, .. } => range,
+    //         Node::ReferenceLink { range, .. } => range,
+    //         Node::ShortcutLink { range, .. } => range,
+    //         Node::AutoLink { range, .. } => range,
+    //         Node::WikiLink { range, .. } => range,
+    //         Node::LinkReference { range, .. } => range,
+    //         Node::InlineImage { range } => range,
+    //         Node::ReferenceImage { range } => range,
+    //         Node::List { range, .. } => range,
+    //         Node::Item { range, .. } => range,
+    //         Node::TaskListMarker { range, .. } => range,
+    //         Node::Code { range, .. } => range,
+    //         Node::CodeBlock { range, .. } => range,
+    //         Node::HorizontalRule { range } => range,
+    //         Node::Table { range, .. } => range,
+    //         Node::DisplayMath { range, .. } => range,
+    //         Node::InlineMath { range, .. } => range,
+    //     };
+    //     range.clone()
+    // }
+
+    /// Given a node, convert it into a serde_json::Value,
+    /// and return the inner object, without the range field.
+    ///
+    /// Node::Code { range, code } -> {"Code": {"range": 42, "code": "..."}}
+    /// is converted to
+    /// {"code": "..."}
+    pub fn inner_json_data(&self) -> Map<String, Value> {
+        let value = serde_json::to_value(self).unwrap();
+
+        // we may assume that the value is an object and that the
+        // inner value is one as well.
+        let Value::Object(mut map) = value else {
+            unreachable!()
         };
-        range.clone()
+        let Some(Value::Object(mut map)) = map.remove(&self.kind().to_string()) else {
+            unreachable!()
+        };
+        map.remove("range");
+
+        map
     }
 }
 
 impl Node {
-    pub fn notimplemented(range: Range) -> Self {
-        Self::NotImplemented { range }
-    }
     pub fn softbreak(range: Range) -> Self {
         Self::SoftBreak { range }
     }
@@ -253,6 +243,7 @@ impl Node {
         attributes: Vec<(String, Option<String>)>,
         level: u8,
         content: String,
+        children: Vec<Node>,
     ) -> Self {
         Self::Heading {
             range,
@@ -261,13 +252,14 @@ impl Node {
             attributes,
             level,
             content,
+            children,
         }
     }
     pub fn paragraph(range: Range, children: Vec<Node>) -> Self {
         Self::Paragraph { children, range }
     }
     pub fn blockquote(range: Range, children: Vec<Node>) -> Self {
-        Self::Paragraph { children, range }
+        Self::BlockQuote { range, children }
     }
     pub fn text(range: Range, text: String) -> Self {
         Self::Text { text, range }
@@ -285,12 +277,8 @@ impl Node {
     pub fn footnotereference(range: Range, name: String) -> Self {
         Self::FootnoteReference { name, range }
     }
-    pub fn footnotedefinition(range: Range, name: String, children: Vec<Node>) -> Self {
-        Self::FootnoteDefinition {
-            name,
-            children,
-            range,
-        }
+    pub fn footnotedefinition(range: Range, id: String, target: String) -> Self {
+        Self::FootnoteDefinition { range, id, target }
     }
     pub fn inlinelink(range: Range, title: String, target: String) -> Self {
         Self::InlineLink {
@@ -299,21 +287,26 @@ impl Node {
             range,
         }
     }
-    pub fn referencelink(range: Range, children: Vec<Node>, reference: String) -> Self {
+    pub fn referencelink(range: Range, title: String, id: String, target: String) -> Self {
         Self::ReferenceLink {
-            children,
-            reference,
             range,
+            title,
+            id,
+            target,
         }
     }
-    pub fn shortcutlink(range: Range, children: Vec<Node>) -> Self {
-        Self::ShortcutLink { children, range }
+    pub fn shortcutlink(range: Range, id: String, target: String) -> Self {
+        Self::ShortcutLink { range, id, target }
     }
     pub fn autolink(range: Range, target: String) -> Self {
         Self::AutoLink { target, range }
     }
-    pub fn wikilink(range: Range, children: Vec<Node>) -> Self {
-        Self::WikiLink { children, range }
+    pub fn wikilink(range: Range, title: String, target: String) -> Self {
+        Self::WikiLink {
+            range,
+            title,
+            target,
+        }
     }
     pub fn linkreference(range: Range, name: String, link: String, title: Option<String>) -> Self {
         Self::LinkReference {
@@ -336,15 +329,18 @@ impl Node {
             range,
         }
     }
-    pub fn item(range: Range, children: Vec<Node>, sub_lists: Vec<Node>) -> Self {
+    pub fn item(
+        range: Range,
+        task_list_marker: TaskListMarker,
+        children: Vec<Node>,
+        sub_lists: Vec<Node>,
+    ) -> Self {
         Self::Item {
             children,
+            task_list_marker,
             sub_lists,
             range,
         }
-    }
-    pub fn tasklistmarker(range: Range, is_checked: bool) -> Self {
-        Self::TaskListMarker { is_checked, range }
     }
     pub fn code(range: Range, code: String) -> Self {
         Self::Code { code, range }
@@ -418,7 +414,7 @@ impl TableCell {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum NodeKind {
     Document,
     NotImplemented,
@@ -440,7 +436,6 @@ pub enum NodeKind {
     ReferenceImage,
     List,
     Item,
-    TaskListMarker,
     SoftBreak,
     HardBreak,
     Code,
@@ -453,12 +448,24 @@ pub enum NodeKind {
     DisplayMath,
     InlineMath,
 }
+
+impl ToString for NodeKind {
+    fn to_string(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+impl Into<String> for NodeKind {
+    fn into(self) -> String {
+        self.to_string()
+    }
+}
+
 impl Node {
     pub fn kind(&self) -> NodeKind {
         use NodeKind::*;
 
         match &self {
-            Node::NotImplemented { .. } => NotImplemented,
             Node::Heading { .. } => Heading,
             Node::Paragraph { .. } => Paragraph,
             Node::BlockQuote { .. } => BlockQuote,
@@ -477,7 +484,6 @@ impl Node {
             Node::ReferenceImage { .. } => ReferenceImage,
             Node::List { .. } => List,
             Node::Item { .. } => Item,
-            Node::TaskListMarker { .. } => TaskListMarker,
             Node::Code { .. } => Code,
             Node::CodeBlock { .. } => CodeBlock,
             Node::HorizontalRule { .. } => HorizontalRule,

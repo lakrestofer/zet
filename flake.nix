@@ -57,6 +57,7 @@
                 # '';
                 packages = (
                   (with pkgs; [
+                    bacon
                     uv
                     bun
                     cargo-insta

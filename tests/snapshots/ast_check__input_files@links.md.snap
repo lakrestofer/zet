@@ -13,90 +13,105 @@ input_file: tests/input_files/links.md
       attributes: []
       level: 1
       content: Links
-  - List:
-      range:
-        start: 9
-        end: 115
-      start_index: ~
       children:
-        - Item:
+        - List:
             range:
               start: 9
-              end: 34
+              end: 136
+            start_index: ~
             children:
-              - Text:
+              - Item:
                   range:
-                    start: 11
-                    end: 23
-                  text: "inline link "
-              - InlineLink:
-                  range:
-                    start: 23
-                    end: 33
-                  title: foo
-                  target: bar
-            sub_lists: []
-        - Item:
-            range:
-              start: 34
-              end: 65
-            children:
-              - Text:
-                  range:
-                    start: 36
-                    end: 45
-                  text: "autolink "
-              - AutoLink:
-                  range:
-                    start: 45
-                    end: 64
-                  target: "https://some.site"
-            sub_lists: []
-        - Item:
-            range:
-              start: 65
-              end: 115
-            children:
-              - Text:
-                  range:
-                    start: 67
-                    end: 77
-                  text: "wiki link "
-              - WikiLink:
-                  range:
-                    start: 77
-                    end: 83
+                    start: 9
+                    end: 34
+                  task_list_marker: NoCheckmark
                   children:
                     - Text:
                         range:
-                          start: 79
-                          end: 82
-                        text: foo
-            sub_lists:
-              - List:
+                          start: 11
+                          end: 23
+                        text: "inline link "
+                    - InlineLink:
+                        range:
+                          start: 23
+                          end: 33
+                        title: foo
+                        target: bar
+                  sub_lists: []
+              - Item:
                   range:
-                    start: 87
-                    end: 115
-                  start_index: ~
+                    start: 34
+                    end: 65
+                  task_list_marker: NoCheckmark
                   children:
-                    - Item:
+                    - Text:
+                        range:
+                          start: 36
+                          end: 45
+                        text: "autolink "
+                    - AutoLink:
+                        range:
+                          start: 45
+                          end: 64
+                        target: "https://some.site"
+                  sub_lists: []
+              - Item:
+                  range:
+                    start: 65
+                    end: 116
+                  task_list_marker: NoCheckmark
+                  children:
+                    - Text:
+                        range:
+                          start: 67
+                          end: 77
+                        text: "wiki link "
+                    - WikiLink:
+                        range:
+                          start: 77
+                          end: 83
+                        title: foo
+                        target: foo
+                  sub_lists:
+                    - List:
                         range:
                           start: 87
-                          end: 115
+                          end: 116
+                        start_index: ~
                         children:
-                          - Text:
+                          - Item:
                               range:
-                                start: 89
-                                end: 104
-                              text: "with \"pothole\" "
-                          - WikiLink:
-                              range:
-                                start: 104
-                                end: 114
+                                start: 87
+                                end: 116
+                              task_list_marker: NoCheckmark
                               children:
                                 - Text:
                                     range:
-                                      start: 110
-                                      end: 113
-                                    text: bar
-                        sub_lists: []
+                                      start: 89
+                                      end: 104
+                                    text: "with \"pothole\" "
+                                - WikiLink:
+                                    range:
+                                      start: 104
+                                      end: 114
+                                    title: bar
+                                    target: foo
+                              sub_lists: []
+              - Item:
+                  range:
+                    start: 116
+                    end: 136
+                  task_list_marker: NoCheckmark
+                  children:
+                    - Text:
+                        range:
+                          start: 118
+                          end: 128
+                        text: "reference "
+                    - ShortcutLink:
+                        range:
+                          start: 128
+                          end: 134
+                        id: link
+                        target: test
+                  sub_lists: []

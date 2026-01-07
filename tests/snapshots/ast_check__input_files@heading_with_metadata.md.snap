@@ -13,16 +13,17 @@ input_file: tests/input_files/heading_with_metadata.md
       attributes: []
       level: 1
       content: this is a heading
-  - Paragraph:
-      range:
-        start: 21
-        end: 33
       children:
-        - Text:
+        - Paragraph:
             range:
               start: 21
-              end: 32
-            text: hello there
+              end: 33
+            children:
+              - Text:
+                  range:
+                    start: 21
+                    end: 32
+                  text: hello there
   - Heading:
       range:
         start: 34
@@ -38,3 +39,4 @@ input_file: tests/input_files/heading_with_metadata.md
           - myvalue
       level: 2
       content: this is another heading with attributes
+      children: []

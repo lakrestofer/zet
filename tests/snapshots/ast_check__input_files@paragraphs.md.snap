@@ -1,0 +1,84 @@
+---
+source: tests/ast_check.rs
+expression: res
+input_file: tests/input_files/paragraphs.md
+---
+- ~
+- - Heading:
+      range:
+        start: 0
+        end: 13
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: Paragraphs
+      children:
+        - Paragraph:
+            range:
+              start: 14
+              end: 128
+            children:
+              - Text:
+                  range:
+                    start: 14
+                    end: 24
+                  text: "This is a "
+              - Code:
+                  range:
+                    start: 24
+                    end: 35
+                  code: paragraph
+              - Text:
+                  range:
+                    start: 35
+                    end: 36
+                  text: " "
+              - TextDecoration:
+                  range:
+                    start: 36
+                    end: 42
+                  kind: Emphasis
+                  content: that
+              - Text:
+                  range:
+                    start: 42
+                    end: 52
+                  text: " contains "
+              - TextDecoration:
+                  range:
+                    start: 52
+                    end: 62
+                  kind: Emphasis
+                  content: multiple
+              - Text:
+                  range:
+                    start: 62
+                    end: 83
+                  text: " different words that"
+              - Text:
+                  range:
+                    start: 84
+                    end: 100
+                  text: "are formated in "
+              - TextDecoration:
+                  range:
+                    start: 100
+                    end: 111
+                  kind: Strong
+                  content: several
+              - Text:
+                  range:
+                    start: 111
+                    end: 127
+                  text: " different ways."
+        - Paragraph:
+            range:
+              start: 129
+              end: 170
+            children:
+              - Text:
+                  range:
+                    start: 129
+                    end: 170
+                  text: "And this is another paragraph, how great!"

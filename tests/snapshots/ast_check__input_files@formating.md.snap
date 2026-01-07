@@ -13,61 +13,62 @@ input_file: tests/input_files/formating.md
       attributes: []
       level: 1
       content: this is a heading
-  - Paragraph:
-      range:
-        start: 21
-        end: 86
       children:
-        - Text:
+        - Paragraph:
             range:
               start: 21
-              end: 35
-            text: "and this is a "
-        - TextDecoration:
-            range:
-              start: 35
-              end: 46
-            kind: Emphasis
-            content: paragraph
-        - Text:
-            range:
-              start: 46
-              end: 61
-            text: " that has some "
-        - TextDecoration:
-            range:
-              start: 61
-              end: 72
-            kind: Strong
-            content: special
-        - Text:
-            range:
-              start: 72
-              end: 73
-            text: " "
-        - Code:
-            range:
-              start: 73
-              end: 85
-            code: formatting
-  - Paragraph:
-      range:
-        start: 87
-        end: 109
-      children:
-        - Text:
+              end: 86
+            children:
+              - Text:
+                  range:
+                    start: 21
+                    end: 35
+                  text: "and this is a "
+              - TextDecoration:
+                  range:
+                    start: 35
+                    end: 46
+                  kind: Emphasis
+                  content: paragraph
+              - Text:
+                  range:
+                    start: 46
+                    end: 61
+                  text: " that has some "
+              - TextDecoration:
+                  range:
+                    start: 61
+                    end: 72
+                  kind: Strong
+                  content: special
+              - Text:
+                  range:
+                    start: 72
+                    end: 73
+                  text: " "
+              - Code:
+                  range:
+                    start: 73
+                    end: 85
+                  code: formatting
+        - Paragraph:
             range:
               start: 87
-              end: 96
-            text: "to be or "
-        - TextDecoration:
-            range:
-              start: 96
-              end: 103
-            kind: Strikethrough
-            content: not
-        - Text:
-            range:
-              start: 103
               end: 109
-            text: " to be"
+            children:
+              - Text:
+                  range:
+                    start: 87
+                    end: 96
+                  text: "to be or "
+              - TextDecoration:
+                  range:
+                    start: 96
+                    end: 103
+                  kind: Strikethrough
+                  content: not
+              - Text:
+                  range:
+                    start: 103
+                    end: 109
+                  text: " to be"

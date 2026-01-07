@@ -1,5 +1,6 @@
 use std::io::BufWriter;
 use std::io::Write;
+use std::ops::Range;
 
 use pulldown_cmark::Parser;
 use zet::core::parser::DocumentParser;
@@ -21,12 +22,14 @@ pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> 
     let (_, content) = frontmatter_parser.parse(document);
 
     let options = DocumentParser::default().options;
-    let mut parser = Parser::new_ext(&content, options).into_offset_iter();
+    let parser = Parser::new_ext(&content, options).into_offset_iter();
 
     let mut out = BufWriter::new(std::io::stdout());
 
     for (event, range) in parser {
-        writeln!(out, "{:?}: {:?}", range, event)?;
+        let Range { start, end } = range;
+
+        writeln!(out, "{start:3?}..{end:3?} - {event:?}")?;
     }
 
     Ok(())

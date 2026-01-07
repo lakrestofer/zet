@@ -13,7 +13,12 @@ use pulldown_cmark::{
     CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, OffsetIter, Options, Parser, Tag, TagEnd,
 };
 use serde::{Deserialize, Serialize};
-use std::{iter::Peekable, ops::Range};
+use std::{
+    iter::{FilterMap, Peekable},
+    ops::Range,
+};
+
+// type Item = (Event<'a>, Range<usize>);
 
 pub struct ParserIterator<'a> {
     inner: Peekable<OffsetIter<'a>>,
@@ -24,7 +29,11 @@ impl<'a> Iterator for ParserIterator<'a> {
     type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        let mut val = self.inner.next()?;
+        while let (Event::SoftBreak, _) = val {
+            val = self.inner.next()?;
+        }
+        Some(val)
     }
 }
 
@@ -100,7 +109,7 @@ impl Default for DocumentParser {
         options.insert(Options::ENABLE_MATH);
         options.insert(Options::ENABLE_WIKILINKS);
         options.insert(Options::ENABLE_TABLES);
-        // options.insert(Options::ENABLE_GFM);
+        options.insert(Options::ENABLE_GFM);
         // options.remove(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
         Self { options }
     }
@@ -132,7 +141,6 @@ impl DocumentParser {
 fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
     match event {
         Event::Start(tag) => parse_start(tag, range, iter),
-        Event::End(_) => Ok(Node::notimplemented(range)),
         Event::Text(str) => parse_text(str, range, iter),
         Event::Code(str) => parse_code(str, range, iter),
         Event::InlineMath(str) => Ok(Node::inlinemath(range, str.into_string())),
@@ -145,7 +153,10 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         Event::SoftBreak => Ok(Node::softbreak(range)),
         Event::HardBreak => Ok(Node::hardbreak(range)),
         Event::Rule => Ok(Node::horizontalrule(range)),
-        Event::TaskListMarker(checked) => Ok(Node::tasklistmarker(range, checked)),
+        _ => Err(eyre!(
+            "unexpected event! event should have been consumed by previous parse rule: {:?}",
+            event
+        )),
     }
 }
 
@@ -183,7 +194,7 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         Tag::HtmlBlock => parse_htmlblock(range, iter),
         Tag::List(n) => parse_list(n, range, iter),
         Tag::Item => parse_item(range, iter),
-        Tag::FootnoteDefinition(str) => parse_footnote_def(str, range, iter),
+        Tag::FootnoteDefinition(id) => parse_footnote_def(id, range, iter),
         Tag::Table(alignments) => parse_table(alignments, range, iter),
         // Tag::TableHead => parse_table_head(range, iter).map(|h| h.into()),
         // Tag::TableRow => parse_table_row(range, iter).map(|r| r.into()),
@@ -196,9 +207,27 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         Tag::Link {
             link_type,
             dest_url,
-            title,
+            // TODO: in which situation is this populated?
+            title: _,
             id,
-        } => parse_link(link_type, dest_url, title, id, range, iter),
+        } => match link_type {
+            LinkType::Inline => parse_inline_link(dest_url, range, iter),
+            LinkType::Reference => parse_reference_link(dest_url, id, range, iter),
+            LinkType::Shortcut => parse_shortcut_link(dest_url, id, range, iter),
+            LinkType::WikiLink { .. } => parse_wiki_link(dest_url, range, iter),
+            LinkType::Autolink => parse_auto_link(dest_url, range, iter),
+            LinkType::Email => parse_email_link(dest_url, range, iter),
+            // with a broken_link_callback setup, this could be used to have
+            // an external reference list (bibtex perhaps?)
+            LinkType::CollapsedUnknown | LinkType::ReferenceUnknown | LinkType::ShortcutUnknown => {
+                todo!()
+            }
+            LinkType::Collapsed => {
+                return Err(eyre!("unsupported link type: {link_type:?}"));
+            }
+        },
+
+        // parse_link(link_type, dest_url, title, id, range, iter),
         Tag::Image {
             link_type,
             dest_url,
@@ -207,6 +236,103 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
         } => parse_image(link_type, dest_url, title, id, range, iter),
         _ => Err(eyre!("unsupported tag")),
     }
+}
+
+fn parse_email_link(
+    dest_url: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, color_eyre::eyre::Error> {
+    while let Some((event, _)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Link) => break,
+            _ => {}
+        }
+    }
+
+    Ok(Node::autolink(range, dest_url.to_string()))
+}
+
+fn parse_auto_link(
+    dest_url: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, color_eyre::eyre::Error> {
+    while let Some((event, _)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Link) => break,
+            _ => {}
+        }
+    }
+
+    Ok(Node::autolink(range, dest_url.to_string()))
+}
+
+fn parse_wiki_link(
+    dest_url: CowStr<'_>,
+    // has_pothole: bool,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, color_eyre::eyre::Error> {
+    let mut title = String::new();
+
+    // independent of whether this wiki link is "piped" or not (not sure why
+    // pulldown_cmark uses the term pothole) we can retrieve the title by
+    // consuming the events. When the wikilink has no pothole, the title
+    // is the same as the dest_url, but we get the title here by consuming anyway
+    while let Some((event, _)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Link) => break,
+            Event::Text(t) => title.push_str(&t),
+            _ => {}
+        }
+    }
+
+    Ok(Node::wikilink(range, title, dest_url.to_string()))
+}
+
+fn parse_shortcut_link(
+    dest_url: CowStr<'_>,
+    id: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, color_eyre::eyre::Error> {
+    while let Some((event, _)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Link) => break,
+            _ => {}
+        }
+    }
+
+    return Ok(Node::shortcutlink(
+        range,
+        id.to_string(),
+        dest_url.to_string(),
+    ));
+}
+
+fn parse_reference_link(
+    dest_url: CowStr<'_>,
+    id: CowStr<'_>,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> std::result::Result<Node, color_eyre::eyre::Error> {
+    let mut title = String::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Link) => break,
+            Event::Text(t) => title.push_str(&t),
+            _ => {}
+        }
+    }
+
+    Ok(Node::referencelink(
+        range,
+        title,
+        id.to_string(),
+        dest_url.to_string(),
+    ))
 }
 
 fn parse_image(
@@ -233,77 +359,97 @@ fn parse_image(
     }
 }
 
-fn parse_link(
-    link_type: LinkType,
+fn parse_inline_link(
     dest_url: CowStr<'_>,
-    _title: CowStr<'_>,
-    _id: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    let mut children = Vec::new();
+) -> std::result::Result<Node, color_eyre::eyre::Error> {
+    // [hello *there*](what)
+    // dest_url == "what"
+    // title = "hello there"
+
+    let mut title = String::new();
 
     while let Some((event, range)) = iter.next() {
         match event {
             Event::End(TagEnd::Link) => break,
-            _ => children.push(parse_event(event, range, iter)?),
+            Event::Text(t) => title.push_str(&t),
+            _ => {}
         }
     }
 
-    // match link_type {
-    //     LinkType::WikiLink { has_pothole } => {
-
-    //     },
-    //     LinkType::Inline => {
-
-    //     }
-
-    //     // not implemented yet
-    //     LinkType::Reference
-    //     | LinkType::ReferenceUnknown
-    //     | LinkType::Collapsed
-    //     | LinkType::CollapsedUnknown
-    //     | LinkType::Shortcut
-    //     | LinkType::ShortcutUnknown => todo!(),
-    // }
-
-    match link_type {
-        LinkType::Inline => {
-            // the children are the title
-            let mut title = String::new();
-
-            for event in children {
-                match &event {
-                    Node::Text { text, range: _ } => title.push_str(&text.to_string()),
-                    Node::TextDecoration {
-                        kind: _,
-                        content,
-                        range: _,
-                    } => title.push_str(content),
-                    Node::Code { code, range: _ } => title.push_str(code),
-
-                    _ => panic!(
-                        "parser encounter unexpected event when parsing link: {:?}",
-                        event
-                    ),
-                }
-            }
-
-            Ok(Node::inlinelink(range, title, dest_url.to_string()))
-        }
-        LinkType::Autolink | LinkType::Email => {
-            Ok(Node::autolink(range, dest_url.to_string()))
-        }
-        LinkType::WikiLink { .. } => Ok(Node::wikilink(range, children)),
-        // not implemented
-        LinkType::Reference
-        | LinkType::ReferenceUnknown
-        | LinkType::Collapsed
-        | LinkType::Shortcut
-        | LinkType::ShortcutUnknown
-        | LinkType::CollapsedUnknown => unimplemented!(),
-    }
+    Ok(Node::inlinelink(range, title, dest_url.to_string()))
 }
+
+// fn parse_link(
+//     link_type: LinkType,
+//     dest_url: CowStr<'_>,
+//     _title: CowStr<'_>,
+//     _id: CowStr<'_>,
+//     range: Range<usize>,
+//     iter: &mut ParserIterator<'_>,
+// ) -> Result<Node> {
+//     let mut children = Vec::new();
+
+//     while let Some((event, range)) = iter.next() {
+//         match event {
+//             Event::End(TagEnd::Link) => break,
+//             _ => children.push(parse_event(event, range, iter)?),
+//         }
+//     }
+
+//     // match link_type {
+//     //     LinkType::WikiLink { has_pothole } => {
+
+//     //     },
+//     //     LinkType::Inline => {
+
+//     //     }
+
+//     //     // not implemented yet
+//     //     LinkType::Reference
+//     //     | LinkType::ReferenceUnknown
+//     //     | LinkType::Collapsed
+//     //     | LinkType::CollapsedUnknown
+//     //     | LinkType::Shortcut
+//     //     | LinkType::ShortcutUnknown => todo!(),
+//     // }
+
+//     match link_type {
+//         LinkType::Inline => {
+//             // the children are the title
+//             let mut title = String::new();
+
+//             for event in children {
+//                 match &event {
+//                     Node::Text { text, range: _ } => title.push_str(&text.to_string()),
+//                     Node::TextDecoration {
+//                         kind: _,
+//                         content,
+//                         range: _,
+//                     } => title.push_str(content),
+//                     Node::Code { code, range: _ } => title.push_str(code),
+
+//                     _ => panic!(
+//                         "parser encounter unexpected event when parsing link: {:?}",
+//                         event
+//                     ),
+//                 }
+//             }
+
+//             Ok(Node::inlinelink(range, title, dest_url.to_string()))
+//         }
+//         LinkType::Autolink | LinkType::Email => Ok(Node::autolink(range, dest_url.to_string())),
+//         LinkType::WikiLink { .. } => Ok(Node::wikilink(range, children)),
+//         // not implemented
+//         LinkType::Reference
+//         | LinkType::ReferenceUnknown
+//         | LinkType::Collapsed
+//         | LinkType::Shortcut
+//         | LinkType::ShortcutUnknown
+//         | LinkType::CollapsedUnknown => unimplemented!(),
+//     }
+// }
 
 // TODO: do we need to constraint the end tag such that we only search for the
 // same end as `kind`?
@@ -324,9 +470,10 @@ fn parse_text_decor(
 
     for (event, _range) in iter.by_ref() {
         if let Event::End(tag) = event
-            && tag == target_end {
-                break;
-            }
+            && tag == target_end
+        {
+            break;
+        }
 
         if let Event::Text(text) = event {
             content = text.to_string();
@@ -419,30 +566,42 @@ fn parse_table_head(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
 }
 
 fn parse_footnote_def(
-    name: CowStr<'_>,
+    id: CowStr<'_>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    let mut children = Vec::new();
+    let mut target = String::new();
 
-    while let Some((event, range)) = iter.next() {
+    while let Some((event, _)) = iter.next() {
         match event {
             Event::End(TagEnd::FootnoteDefinition) => break,
-            _ => children.push(parse_event(event, range, iter)?),
+            Event::Text(text) => target.push_str(&text),
+            _ => {}
         }
     }
 
-    Ok(Node::footnotedefinition(range, name.to_string(), children))
+    Ok(Node::footnotedefinition(range, id.to_string(), target))
 }
 
 fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
     let mut children = Vec::new();
     let mut sub_lists = Vec::new();
+    let mut checkmark = TaskListMarker::NoCheckmark;
 
     while let Some((event, range)) = iter.next() {
         match event {
             Event::End(TagEnd::Item) => break,
+            Event::TaskListMarker(checked) => {
+                if checked {
+                    checkmark = TaskListMarker::Checked;
+                } else {
+                    checkmark = TaskListMarker::UnChecked;
+                }
+            }
             Event::Start(Tag::List(_)) => sub_lists.push(parse_event(event, range, iter)?),
+            // TODO: this structure looks a bit weird. Maybe we should reset the
+            // sublist list? Check out the snapshot test for it and see if it
+            // makes sense
             _ => {
                 children.append(&mut sub_lists);
                 children.push(parse_event(event, range, iter)?)
@@ -450,7 +609,7 @@ fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node
         }
     }
 
-    Ok(Node::item(range, children, sub_lists))
+    Ok(Node::item(range, checkmark, children, sub_lists))
 }
 
 fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
@@ -532,25 +691,51 @@ fn parse_paragraph(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result
 }
 
 fn parse_heading(
-    level: HeadingLevel,
+    orig_level: HeadingLevel,
     id: Option<CowStr<'_>>,
     classes: Vec<CowStr<'_>>,
     attrs: Vec<(CowStr<'_>, Option<CowStr<'_>>)>,
     range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
-    let mut heading_content = String::new();
+    // 1. we first parse the title itself.
+    // 2. we then continue parsing the "section" under the title. We stop when
+    // we find the start of a another section on the same "level" or higher, or
+    // the end.
 
-    for (event, _) in iter.by_ref() {
+    let mut heading_content = String::new();
+    let mut children = Vec::new();
+
+    // 1. parse the heading
+    while let Some((event, _)) = iter.next() {
         match event {
             Event::End(TagEnd::Heading(end_level)) => {
-                if end_level == level {
+                if end_level == orig_level {
                     break;
                 }
             }
+            // only consider the text events, we remove any special formatting
             Event::Text(content) => heading_content.push_str(content.as_ref()),
             _ => {}
         }
+    }
+
+    // 2. And then the section
+    //
+    // We do not want to consume the `Event::Start(TagStart::Heading)` event,
+    // which is why the below iteration looks different than above.
+    while let Some((event, _)) = iter.inner.peek() {
+        if let Event::Start(Tag::Heading { level, .. }) = event
+            && *level >= orig_level
+        {
+            break;
+        }
+        // consume the event
+        let Some((event, range)) = iter.next() else {
+            unreachable!();
+        };
+
+        children.push(parse_event(event, range, iter)?);
     }
 
     Ok(Node::heading(
@@ -561,8 +746,9 @@ fn parse_heading(
             .iter()
             .map(|(k, v)| (k.to_string(), v.as_ref().map(|s| s.to_string())))
             .collect(),
-        level as u8,
+        orig_level as u8,
         heading_content,
+        children,
     ))
 }
 

@@ -13,3 +13,4 @@ input_file: tests/input_files/heading.md
       attributes: []
       level: 1
       content: this is a heading on level 1
+      children: []

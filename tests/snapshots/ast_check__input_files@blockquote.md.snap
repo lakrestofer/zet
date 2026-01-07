@@ -13,33 +13,116 @@ input_file: tests/input_files/blockquote.md
       attributes: []
       level: 1
       content: blockquote
-  - Paragraph:
-      range:
-        start: 14
-        end: 30
       children:
-        - Paragraph:
+        - BlockQuote:
             range:
-              start: 16
-              end: 30
+              start: 14
+              end: 788
             children:
-              - Text:
+              - Paragraph:
                   range:
                     start: 16
-                    end: 29
-                  text: regular quote
-  - Paragraph:
-      range:
-        start: 31
-        end: 43
-      children:
-        - Paragraph:
+                    end: 788
+                  children:
+                    - Text:
+                        range:
+                          start: 16
+                          end: 83
+                        text: Did you ever hear the tragedy of Darth Plagueis The Wise? I thought
+                    - Text:
+                        range:
+                          start: 86
+                          end: 102
+                        text: "not. It's not a "
+                    - TextDecoration:
+                        range:
+                          start: 102
+                          end: 109
+                        kind: Emphasis
+                        content: story
+                    - Text:
+                        range:
+                          start: 109
+                          end: 154
+                        text: " the Jedi would tell you. It's a Sith legend."
+                    - Text:
+                        range:
+                          start: 157
+                          end: 224
+                        text: "Darth Plagueis was a Dark Lord of the Sith, so powerful and so wise"
+                    - Text:
+                        range:
+                          start: 227
+                          end: 267
+                        text: "he could use the Force to influence the "
+                    - TextDecoration:
+                        range:
+                          start: 267
+                          end: 284
+                        kind: Strong
+                        content: midichlorians
+                    - Text:
+                        range:
+                          start: 284
+                          end: 294
+                        text: " to create"
+                    - Text:
+                        range:
+                          start: 297
+                          end: 364
+                        text: life… He had such a knowledge of the dark side that he could even
+                    - Text:
+                        range:
+                          start: 367
+                          end: 434
+                        text: keep the ones he cared about from dying. The dark side of the Force
+                    - Text:
+                        range:
+                          start: 437
+                          end: 488
+                        text: "is a pathway to many abilities some consider to be "
+                    - Code:
+                        range:
+                          start: 488
+                          end: 499
+                        code: unnatural
+                    - Text:
+                        range:
+                          start: 499
+                          end: 503
+                        text: ". He"
+                    - Text:
+                        range:
+                          start: 506
+                          end: 574
+                        text: became so powerful… the only thing he was afraid of was losing his
+                    - Text:
+                        range:
+                          start: 577
+                          end: 645
+                        text: "power, which eventually, of course, he did. Unfortunately, he taught"
+                    - Text:
+                        range:
+                          start: 648
+                          end: 716
+                        text: "his apprentice everything he knew, then his apprentice killed him in"
+                    - Text:
+                        range:
+                          start: 719
+                          end: 787
+                        text: "his sleep. Ironic. He could save others from death, but not himself."
+        - BlockQuote:
             range:
-              start: 33
-              end: 43
+              start: 789
+              end: 821
             children:
-              - Text:
+              - Paragraph:
                   range:
-                    start: 33
-                    end: 43
-                  text: note quote
+                    start: 801
+                    end: 821
+                  children:
+                    - Text:
+                        range:
+                          start: 801
+                          end: 821
+                        text: Very important quote
