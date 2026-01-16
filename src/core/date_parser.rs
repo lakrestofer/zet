@@ -11,17 +11,37 @@ pub enum ParseError {
 }
 
 impl NaturalDateParser {
-    /// Parse a natural language date string into a Timestamp
+    /// Parse a natural language date string into a UTC Timestamp
+    ///
+    /// # Return Value
+    /// Returns a `Timestamp` in UTC. For display purposes, convert to timezone-aware
+    /// `Zoned` using `.to_zoned(TimeZone)` to show the correct civil date/time.
+    ///
+    /// **Important:** The returned timestamp may not display the expected date when
+    /// shown directly as UTC. For example, "today" at midnight in timezone CET (UTC+1)
+    /// returns a UTC timestamp that appears to be yesterday. Always convert to a
+    /// timezone for display:
+    ///
+    /// ```ignore
+    /// use jiff::{Timestamp, tz::TimeZone};
+    ///
+    /// let now = Timestamp::now();
+    /// let timestamp = NaturalDateParser::parse("today", now)?;
+    ///
+    /// // Convert to system timezone for display
+    /// let zoned = timestamp.to_zoned(TimeZone::system());
+    /// println!("Today: {}", zoned);  // Shows correct date
+    /// ```
     ///
     /// # Arguments
-    /// * `input` - Natural language date string (e.g., "in 3 days", "next friday")
+    /// * `input` - Natural language date string (e.g., "in 3 days", "next friday", "today")
     /// * `now` - Reference timestamp to calculate relative dates from
     ///
-    /// # Examples
-    /// ```ignore
-    /// let now = Timestamp::now();
-    /// let result = NaturalDateParser::parse("in 3 days", now)?;
-    /// ```
+    /// # Design Note
+    /// We return `Timestamp` (UTC) rather than `Zoned` (timezone-aware) because:
+    /// - Timestamps are the universal interchange format
+    /// - Consumers can convert to any timezone they need
+    /// - Keeps the API simple with a single return type
     pub fn parse(input: &str, now: Timestamp) -> Result<Timestamp, ParseError> {
         // Step 1: Tokenize the input string
         let lowercase_input = input.to_lowercase();
@@ -408,6 +428,11 @@ fn stride_to_span(n: u32, stride: &TimeStride) -> jiff::Span {
     }
 }
 
+/// Apply a time component to a date, returning a UTC timestamp.
+///
+/// The date is interpreted as being in the given timezone, then converted to UTC.
+/// This is why "today" with system timezone CET returns a UTC timestamp that
+/// appears to be yesterday - it's midnight CET converted to UTC.
 fn apply_time(date: Date, time_opt: &Option<Time>, tz: &TimeZone) -> Result<Timestamp, ParseError> {
     let (hour, minute) = if let Some(t) = time_opt {
         (t.hour as i8, t.minute.unwrap_or(0) as i8)
