@@ -832,15 +832,30 @@ mod tests {
     ) {
         // Always check date using system timezone
         let zoned_sys = result.to_zoned(TimeZone::system());
-        assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+        assert_eq!(
+            zoned_sys.date(),
+            expected_date,
+            "Date mismatch for '{}'",
+            input
+        );
 
         // Only check time for sub-day strides
         if let Some((hour, minute, second)) = time_check {
             let zoned_utc = result.to_zoned(TimeZone::UTC);
             assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
-            assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+            assert_eq!(
+                zoned_utc.minute(),
+                minute,
+                "Minute mismatch for '{}'",
+                input
+            );
             if input.contains("seconds") {
-                assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+                assert_eq!(
+                    zoned_utc.second(),
+                    second,
+                    "Second mismatch for '{}'",
+                    input
+                );
             }
         }
     }
@@ -894,8 +909,8 @@ mod tests {
     /// Reference: Jan 16, 2025
     fn next_month_date(month: &str) -> Date {
         match month {
-            "january" => date(2026, 1, 1),   // January passed, next is 2026
-            "february" => date(2025, 2, 1),  // Later in 2025
+            "january" => date(2026, 1, 1),  // January passed, next is 2026
+            "february" => date(2025, 2, 1), // Later in 2025
             "march" => date(2025, 3, 1),
             "april" => date(2025, 4, 1),
             "may" => date(2025, 5, 1),
@@ -914,8 +929,8 @@ mod tests {
     /// Reference: Jan 16, 2025
     fn last_month_date(month: &str) -> Date {
         match month {
-            "january" => date(2024, 1, 1),   // Last January was 2024
-            "february" => date(2024, 2, 1),  // Earlier in previous year
+            "january" => date(2024, 1, 1),  // Last January was 2024
+            "february" => date(2024, 2, 1), // Earlier in previous year
             "march" => date(2024, 3, 1),
             "april" => date(2024, 4, 1),
             "may" => date(2024, 5, 1),
@@ -1229,13 +1244,13 @@ mod tests {
 
         // Table-driven test with expected timestamp values
         let test_cases = vec![
-            ("5 seconds ago", date(2025, 1, 16), Some((11, 59, 55))),  // 12:00:00 - 5s
-            ("10 minutes ago", date(2025, 1, 16), Some((11, 50, 0))),  // 12:00:00 - 10m
-            ("3 hours ago", date(2025, 1, 16), Some((9, 0, 0))),       // 12:00:00 - 3h
-            ("4 days ago", date(2025, 1, 12), None),       // Jan 16 - 4d = Jan 12
-            ("2 weeks ago", date(2025, 1, 2), None),       // Jan 16 - 14d = Jan 2
-            ("6 months ago", date(2024, 7, 16), None),     // 6 months back
-            ("2 years ago", date(2023, 1, 16), None),      // 2 years back
+            ("5 seconds ago", date(2025, 1, 16), Some((11, 59, 55))), // 12:00:00 - 5s
+            ("10 minutes ago", date(2025, 1, 16), Some((11, 50, 0))), // 12:00:00 - 10m
+            ("3 hours ago", date(2025, 1, 16), Some((9, 0, 0))),      // 12:00:00 - 3h
+            ("4 days ago", date(2025, 1, 12), None),                  // Jan 16 - 4d = Jan 12
+            ("2 weeks ago", date(2025, 1, 2), None),                  // Jan 16 - 14d = Jan 2
+            ("6 months ago", date(2024, 7, 16), None),                // 6 months back
+            ("2 years ago", date(2023, 1, 16), None),                 // 2 years back
         ];
 
         for (input, expected_date, time_check) in test_cases {
@@ -1244,15 +1259,30 @@ mod tests {
 
             // Always check date using system timezone
             let zoned_sys = result.to_zoned(TimeZone::system());
-            assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+            assert_eq!(
+                zoned_sys.date(),
+                expected_date,
+                "Date mismatch for '{}'",
+                input
+            );
 
             // Only check time for sub-day strides (seconds, minutes, hours)
             if let Some((hour, minute, second)) = time_check {
                 let zoned_utc = result.to_zoned(TimeZone::UTC);
                 assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
-                assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+                assert_eq!(
+                    zoned_utc.minute(),
+                    minute,
+                    "Minute mismatch for '{}'",
+                    input
+                );
                 if input.contains("seconds") {
-                    assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+                    assert_eq!(
+                        zoned_utc.second(),
+                        second,
+                        "Second mismatch for '{}'",
+                        input
+                    );
                 }
             }
         }
@@ -1264,13 +1294,13 @@ mod tests {
 
         // Table-driven test with expected timestamp values
         let test_cases = vec![
-            ("5 seconds from now", date(2025, 1, 16), Some((12, 0, 5))),   // 12:00:00 + 5s
+            ("5 seconds from now", date(2025, 1, 16), Some((12, 0, 5))), // 12:00:00 + 5s
             ("10 minutes from now", date(2025, 1, 16), Some((12, 10, 0))), // 12:00:00 + 10m
-            ("3 hours from now", date(2025, 1, 16), Some((15, 0, 0))),     // 12:00:00 + 3h
-            ("4 days from now", date(2025, 1, 20), None),      // Jan 16 + 4d = Jan 20
-            ("2 weeks from now", date(2025, 1, 30), None),     // Jan 16 + 14d = Jan 30
-            ("6 months from now", date(2025, 7, 16), None),    // 6 months forward
-            ("2 years from now", date(2027, 1, 16), None),     // 2 years forward
+            ("3 hours from now", date(2025, 1, 16), Some((15, 0, 0))),   // 12:00:00 + 3h
+            ("4 days from now", date(2025, 1, 20), None),                // Jan 16 + 4d = Jan 20
+            ("2 weeks from now", date(2025, 1, 30), None),               // Jan 16 + 14d = Jan 30
+            ("6 months from now", date(2025, 7, 16), None),              // 6 months forward
+            ("2 years from now", date(2027, 1, 16), None),               // 2 years forward
         ];
 
         for (input, expected_date, time_check) in test_cases {
@@ -1279,15 +1309,30 @@ mod tests {
 
             // Always check date using system timezone
             let zoned_sys = result.to_zoned(TimeZone::system());
-            assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+            assert_eq!(
+                zoned_sys.date(),
+                expected_date,
+                "Date mismatch for '{}'",
+                input
+            );
 
             // Only check time for sub-day strides (seconds, minutes, hours)
             if let Some((hour, minute, second)) = time_check {
                 let zoned_utc = result.to_zoned(TimeZone::UTC);
                 assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
-                assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+                assert_eq!(
+                    zoned_utc.minute(),
+                    minute,
+                    "Minute mismatch for '{}'",
+                    input
+                );
                 if input.contains("seconds") {
-                    assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+                    assert_eq!(
+                        zoned_utc.second(),
+                        second,
+                        "Second mismatch for '{}'",
+                        input
+                    );
                 }
             }
         }
@@ -1475,13 +1520,13 @@ mod tests {
         let now = test_timestamp(); // Thursday, Jan 16, 2025
 
         let test_cases = vec![
-            ("this monday", date(2025, 1, 20)),    // Passed this week, next Monday
-            ("this tuesday", date(2025, 1, 21)),   // Passed this week, next Tuesday
+            ("this monday", date(2025, 1, 20)), // Passed this week, next Monday
+            ("this tuesday", date(2025, 1, 21)), // Passed this week, next Tuesday
             ("this wednesday", date(2025, 1, 22)), // Passed this week, next Wednesday
-            ("this thursday", date(2025, 1, 16)),  // Today (current weekday)
-            ("this friday", date(2025, 1, 17)),    // Tomorrow (upcoming in current week)
-            ("this saturday", date(2025, 1, 18)),  // Upcoming in current week
-            ("this sunday", date(2025, 1, 19)),    // Upcoming in current week
+            ("this thursday", date(2025, 1, 16)), // Today (current weekday)
+            ("this friday", date(2025, 1, 17)), // Tomorrow (upcoming in current week)
+            ("this saturday", date(2025, 1, 18)), // Upcoming in current week
+            ("this sunday", date(2025, 1, 19)), // Upcoming in current week
         ];
 
         for (input, expected_date) in test_cases {
@@ -1870,14 +1915,29 @@ mod generative_tests {
         input: &str,
     ) {
         let zoned_sys = result.to_zoned(TimeZone::system());
-        assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+        assert_eq!(
+            zoned_sys.date(),
+            expected_date,
+            "Date mismatch for '{}'",
+            input
+        );
 
         if let Some((hour, minute, second)) = time_check {
             let zoned_utc = result.to_zoned(TimeZone::UTC);
             assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
-            assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+            assert_eq!(
+                zoned_utc.minute(),
+                minute,
+                "Minute mismatch for '{}'",
+                input
+            );
             if input.contains("seconds") {
-                assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+                assert_eq!(
+                    zoned_utc.second(),
+                    second,
+                    "Second mismatch for '{}'",
+                    input
+                );
             }
         }
     }
@@ -2030,7 +2090,13 @@ mod generative_tests {
         let now = test_timestamp(); // Thursday, Jan 16, 2025
 
         let weekdays = vec![
-            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
         ];
 
         // Test "next" pattern for all weekdays
@@ -2075,8 +2141,18 @@ mod generative_tests {
         let now = test_timestamp(); // Jan 16, 2025
 
         let months = vec![
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december",
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
         ];
 
         for month in months {
@@ -2093,8 +2169,18 @@ mod generative_tests {
         let now = test_timestamp(); // Jan 16, 2025
 
         let months = vec![
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december",
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
         ];
 
         for month in months {
@@ -2111,14 +2197,14 @@ mod generative_tests {
         let now = test_timestamp(); // Thu Jan 16, 2025
 
         let test_cases = vec![
-            ("tomorrow at 5", date(2025, 1, 17), 5, 0),         // Hour only
+            ("tomorrow at 5", date(2025, 1, 17), 5, 0), // Hour only
             ("tomorrow at 5 am", date(2025, 1, 17), 5, 0),
             ("tomorrow at 5 pm", date(2025, 1, 17), 17, 0),
             ("tomorrow at 5:30", date(2025, 1, 17), 5, 30),
             ("tomorrow at 5:30 am", date(2025, 1, 17), 5, 30),
             ("tomorrow at 5:30 pm", date(2025, 1, 17), 17, 30),
-            ("tomorrow at 12 am", date(2025, 1, 17), 0, 0),     // Midnight
-            ("tomorrow at 12 pm", date(2025, 1, 17), 12, 0),    // Noon
+            ("tomorrow at 12 am", date(2025, 1, 17), 0, 0), // Midnight
+            ("tomorrow at 12 pm", date(2025, 1, 17), 12, 0), // Noon
             ("tomorrow at 12:15 am", date(2025, 1, 17), 0, 15),
             ("tomorrow at 12:15 pm", date(2025, 1, 17), 12, 15),
         ];
@@ -2222,11 +2308,7 @@ mod generative_tests {
                 "Failed to parse numeric form: '{}'",
                 numeric
             );
-            assert!(
-                result_word.is_ok(),
-                "Failed to parse word form: '{}'",
-                word
-            );
+            assert!(result_word.is_ok(), "Failed to parse word form: '{}'", word);
 
             // Both should parse to the same date
             if let (Ok(num_ts), Ok(word_ts)) = (result_numeric, result_word) {

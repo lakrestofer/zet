@@ -19,19 +19,63 @@ fn main() {
     println!("Current time: {}\n", now);
 
     let examples = vec![
+        // Basic patterns
         "today",
         "tomorrow",
         "yesterday",
+
+        // "in X" pattern - all time strides
+        "in 30 seconds",
+        "in 15 minutes",
+        "in 2 hours",
         "in 3 days",
         "in 2 weeks",
+        "in 6 months",
+        "in 2 years",
+
+        // "X from now" pattern
+        "5 days from now",
+        "2 weeks from now",
+
+        // "X ago" pattern - all time strides
+        "10 seconds ago",
+        "30 minutes ago",
+        "3 hours ago",
         "3 days ago",
+        "2 weeks ago",
+        "6 months ago",
+        "1 years ago",
+
+        // Weekday patterns
         "next monday",
-        "last friday",
         "this friday",
+        "last friday",
+        "on wednesday",
+
+        // Month patterns
+        "next march",
+        "last december",
+
+        // Week/year patterns
+        "next week",
+        "this week",
+        "last week",
+        "next year",
+        "this year",
+        "last year",
+
+        // With time specifications
+        "today at 2 pm",
         "tomorrow at 10:30 am",
         "next friday at 10:13 pm",
-        "in 2 hours",
-        "30 minutes ago",
+        "in 3 days at 8:30 am",
+        "on monday at 7:15 am",
+        "tomorrow at 12 am",  // midnight
+        "tomorrow at 12 pm",  // noon
+
+        // Number words
+        "in three days",
+        "in five weeks",
     ];
 
     for example in examples {
