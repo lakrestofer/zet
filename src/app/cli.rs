@@ -6,7 +6,7 @@ pub mod argument_parser {
     ///   /_  / ___ / /_
     ///    / /_/ -_) __/
     ///   /___/\__/\__/
-    /// Your PKM Assistant             
+    /// Your PKM Assistant
     #[derive(Parser)]
     #[command(version, about, long_about, verbatim_doc_comment)]
     pub struct ArgumentParser {
