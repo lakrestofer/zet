@@ -11,7 +11,9 @@ use zet::preamble::*;
 pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
     match command {
         Command::Init { root, force } => init::handle_command(root, force)?,
-        Command::Parse { path } => parse::handle_command(FrontMatterFormat::Yaml, path)?,
+        Command::Parse { path, pretty_print } => {
+            parse::handle_command(FrontMatterFormat::Yaml, path)?
+        }
         Command::RawParse { path } => raw_parse::handle_command(FrontMatterFormat::Yaml, path)?,
         Command::Index { force } => {
             let config = zet::config::Config {
@@ -20,6 +22,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             };
             index::handle_command(config, force)?
         }
+        Command::Query { tag, format, .. } => todo!(),
         Command::Lsp => todo!(),
         Command::Format => todo!(),
     }

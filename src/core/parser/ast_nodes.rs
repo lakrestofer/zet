@@ -80,9 +80,6 @@ pub enum Node {
         rows: Vec<TableRow>,
     },
     // leaf nodes
-    SoftBreak {
-        range: Range,
-    },
     HardBreak {
         range: Range,
     },
@@ -141,7 +138,6 @@ pub enum Node {
         title: String,
         target: String,
     },
-
     LinkReference {
         range: Range,
         name: String,
@@ -172,40 +168,6 @@ pub enum Node {
 }
 
 impl Node {
-    // pub fn range(&self) -> Range {
-    //     let range = match self {
-    //         Node::NotImplemented { range } => range,
-    //         Node::SoftBreak { range } => range,
-    //         Node::HardBreak { range } => range,
-    //         Node::Heading { range, .. } => range,
-    //         Node::Paragraph { range, .. } => range,
-    //         Node::BlockQuote { range, .. } => range,
-    //         Node::Text { range, .. } => range,
-    //         Node::TextDecoration { range, .. } => range,
-    //         Node::Html { range, .. } => range,
-    //         Node::FootnoteReference { range, .. } => range,
-    //         Node::FootnoteDefinition { range, .. } => range,
-    //         Node::InlineLink { range, .. } => range,
-    //         Node::ReferenceLink { range, .. } => range,
-    //         Node::ShortcutLink { range, .. } => range,
-    //         Node::AutoLink { range, .. } => range,
-    //         Node::WikiLink { range, .. } => range,
-    //         Node::LinkReference { range, .. } => range,
-    //         Node::InlineImage { range } => range,
-    //         Node::ReferenceImage { range } => range,
-    //         Node::List { range, .. } => range,
-    //         Node::Item { range, .. } => range,
-    //         Node::TaskListMarker { range, .. } => range,
-    //         Node::Code { range, .. } => range,
-    //         Node::CodeBlock { range, .. } => range,
-    //         Node::HorizontalRule { range } => range,
-    //         Node::Table { range, .. } => range,
-    //         Node::DisplayMath { range, .. } => range,
-    //         Node::InlineMath { range, .. } => range,
-    //     };
-    //     range.clone()
-    // }
-
     /// Given a node, convert it into a serde_json::Value,
     /// and return the inner object, without the range field.
     ///
@@ -230,9 +192,6 @@ impl Node {
 }
 
 impl Node {
-    pub fn softbreak(range: Range) -> Self {
-        Self::SoftBreak { range }
-    }
     pub fn hardbreak(range: Range) -> Self {
         Self::HardBreak { range }
     }
@@ -436,7 +395,6 @@ pub enum NodeKind {
     ReferenceImage,
     List,
     Item,
-    SoftBreak,
     HardBreak,
     Code,
     CodeBlock,
@@ -490,7 +448,6 @@ impl Node {
             Node::Table { .. } => Table,
             Node::DisplayMath { .. } => DisplayMath,
             Node::InlineMath { .. } => InlineMath,
-            Node::SoftBreak { .. } => SoftBreak,
             Node::HardBreak { .. } => HardBreak,
         }
     }

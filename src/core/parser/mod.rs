@@ -37,8 +37,6 @@ impl<'a> Iterator for ParserIterator<'a> {
     }
 }
 
-// TODO we want to turn the DocumentParser type into a trait
-// otherwise there is no purpose
 pub fn parse(
     frontmatter_parser: FrontMatterParser,
     document_parser: DocumentParser,
@@ -141,7 +139,7 @@ impl DocumentParser {
 fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> Result<Node> {
     match event {
         Event::Start(tag) => parse_start(tag, range, iter),
-        Event::Text(str) => parse_text(str, range, iter),
+        Event::Text(str) => Ok(Node::text(range, str.to_string())),
         Event::Code(str) => parse_code(str, range, iter),
         Event::InlineMath(str) => Ok(Node::inlinemath(range, str.into_string())),
         Event::DisplayMath(str) => Ok(Node::displaymath(range, str.into_string())),
@@ -150,7 +148,6 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         Event::FootnoteReference(str) => {
             Ok(Node::footnotereference(range, String::from(str.as_ref())))
         }
-        Event::SoftBreak => Ok(Node::softbreak(range)),
         Event::HardBreak => Ok(Node::hardbreak(range)),
         Event::Rule => Ok(Node::horizontalrule(range)),
         _ => Err(eyre!(
@@ -158,14 +155,6 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
             event
         )),
     }
-}
-
-fn parse_text(
-    cow: CowStr<'_>,
-    range: Range<usize>,
-    _iter: &mut ParserIterator<'_>,
-) -> Result<Node> {
-    Ok(Node::text(range, cow.to_string()))
 }
 
 fn parse_code(

@@ -91,15 +91,10 @@ fn build_db_nodes<'a>(
 
         let kind = node.kind();
 
-        // todo
-        // - move out data our here
-        // - conditionally remove more field in the container nodes
-
         // we have two kinds of nodes, the container nodes, and leaf nodes
         match node {
             // leaf nodes
-            SoftBreak { range, .. }
-            | HardBreak { range, .. }
+            HardBreak { range, .. }
             | Text { range, .. }
             | TextDecoration { range, .. }
             | Html { range, .. }
@@ -114,20 +109,10 @@ fn build_db_nodes<'a>(
             | HorizontalRule { range, .. }
             | DisplayMath { range, .. }
             | InlineMath { range, .. }
+            | FootnoteDefinition { range, .. }
             | FootnoteReference { range, .. } => {
                 let data = node.inner_json_data();
                 db_nodes.push((kind, range, parent, data.into()));
-            }
-            FootnoteDefinition { range, id, target } => {
-                db_nodes.push((
-                    kind,
-                    range,
-                    parent,
-                    json!({
-                        "id": id,
-                        "target": target,
-                    }),
-                ));
             }
             WikiLink {
                 range,
@@ -311,8 +296,8 @@ fn process_new_documents(config: &Config, new: Vec<DocumentPath>) -> Result<Vec<
         let id = path_to_id(&config.root, &path);
 
         let metadata = std::fs::metadata(&path)?;
-        let modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
-        let created = CreatedTimestamp(metadata.created().map(From::from)?);
+        let modified = ModifiedTimestamp(metadata.modified().map(TryFrom::try_from)??);
+        let created = CreatedTimestamp(metadata.created().map(TryFrom::try_from)??);
 
         let content = std::fs::read_to_string(&path)?;
         let hash = zet::core::hash(&content);

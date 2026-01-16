@@ -1,3 +1,4 @@
+pub mod date_parser;
 pub mod db;
 pub mod parser;
 pub mod slug;
@@ -167,10 +168,11 @@ pub fn collection_status(
                 let path = db_documents[i].path.to_owned();
                 let metadata = std::fs::metadata(&path.0)?;
 
-                let current_modified = ModifiedTimestamp(metadata.modified().map(From::from)?);
+                let current_modified =
+                    ModifiedTimestamp(metadata.modified().map(TryFrom::try_from)??);
                 let previous_modified: &ModifiedTimestamp = &db_documents[i].modified;
 
-                let current_created = CreatedTimestamp(metadata.created().map(From::from)?);
+                let current_created = CreatedTimestamp(metadata.created().map(TryFrom::try_from)??);
                 let previous_created: &CreatedTimestamp = &db_documents[i].created;
                 Ok((
                     i,
@@ -264,7 +266,9 @@ pub fn extract_title_from_frontmatter(data: &serde_json::Value) -> Option<String
 pub fn extract_title_from_ast(ast: &[ast_nodes::Node]) -> Option<String> {
     // the first heading found
     for node in ast.iter() {
-        if let ast_nodes::Node::Heading { content, .. } = &node { return Some(content.to_owned()) }
+        if let ast_nodes::Node::Heading { content, .. } = &node {
+            return Some(content.to_owned());
+        }
     }
 
     None

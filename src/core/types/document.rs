@@ -2,12 +2,12 @@ use crate::core::db::{DbDelete, DbGet, DbInsert, DbList, DbUpdate};
 use std::{path::PathBuf, str::FromStr};
 
 use crate::result::Result;
+use jiff::Timestamp;
 use rusqlite::{
     ToSql, params,
     types::{FromSql, FromSqlError, ToSqlOutput},
 };
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 
 use sql_minifier::macros::minify_sql as sql;
 
@@ -24,10 +24,10 @@ pub struct DocumentPath(pub PathBuf);
 pub struct DocumentId(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ModifiedTimestamp(pub OffsetDateTime);
+pub struct ModifiedTimestamp(pub Timestamp);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CreatedTimestamp(pub OffsetDateTime);
+pub struct CreatedTimestamp(pub Timestamp);
 
 ////////////////////////////////////////////////////////////
 // Document
@@ -225,12 +225,12 @@ impl DbDelete<DocumentId> for Document {
 
 impl FromSql for ModifiedTimestamp {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(ModifiedTimestamp(OffsetDateTime::column_result(value)?))
+        Ok(ModifiedTimestamp(Timestamp::column_result(value)?))
     }
 }
 impl FromSql for CreatedTimestamp {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(CreatedTimestamp(OffsetDateTime::column_result(value)?))
+        Ok(CreatedTimestamp(Timestamp::column_result(value)?))
     }
 }
 impl ToSql for ModifiedTimestamp {
