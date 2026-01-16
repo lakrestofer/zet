@@ -821,6 +821,115 @@ mod tests {
         assert_eq!(zoned.minute(), expected_minute);
     }
 
+    /// Helper to assert timestamp with optional time validation
+    /// For sub-day strides (seconds, minutes, hours), validates exact time in UTC
+    /// For day+ strides, only validates the date
+    fn assert_timestamp_with_time(
+        result: Timestamp,
+        expected_date: Date,
+        time_check: Option<(i8, i8, i8)>,
+        input: &str,
+    ) {
+        // Always check date using system timezone
+        let zoned_sys = result.to_zoned(TimeZone::system());
+        assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+
+        // Only check time for sub-day strides
+        if let Some((hour, minute, second)) = time_check {
+            let zoned_utc = result.to_zoned(TimeZone::UTC);
+            assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
+            assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+            if input.contains("seconds") {
+                assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+            }
+        }
+    }
+
+    /// Calculate expected date for "next <weekday>" from a reference date
+    /// Reference: Thu Jan 16, 2025
+    fn next_weekday_date(weekday: &str) -> Date {
+        match weekday {
+            "monday" => date(2025, 1, 20),    // 4 days ahead
+            "tuesday" => date(2025, 1, 21),   // 5 days ahead
+            "wednesday" => date(2025, 1, 22), // 6 days ahead
+            "thursday" => date(2025, 1, 23),  // 7 days ahead (same day, next week)
+            "friday" => date(2025, 1, 17),    // 1 day ahead
+            "saturday" => date(2025, 1, 18),  // 2 days ahead
+            "sunday" => date(2025, 1, 19),    // 3 days ahead
+            _ => panic!("Invalid weekday: {}", weekday),
+        }
+    }
+
+    /// Calculate expected date for "this <weekday>" from a reference date
+    /// Reference: Thu Jan 16, 2025
+    fn this_weekday_date(weekday: &str) -> Date {
+        match weekday {
+            "monday" => date(2025, 1, 20),    // Already passed, goes to next Mon
+            "tuesday" => date(2025, 1, 21),   // Already passed, goes to next Tue
+            "wednesday" => date(2025, 1, 22), // Already passed, goes to next Wed
+            "thursday" => date(2025, 1, 16),  // Today
+            "friday" => date(2025, 1, 17),    // Upcoming this week
+            "saturday" => date(2025, 1, 18),  // Upcoming this week
+            "sunday" => date(2025, 1, 19),    // Upcoming this week
+            _ => panic!("Invalid weekday: {}", weekday),
+        }
+    }
+
+    /// Calculate expected date for "last <weekday>" from a reference date
+    /// Reference: Thu Jan 16, 2025
+    fn last_weekday_date(weekday: &str) -> Date {
+        match weekday {
+            "monday" => date(2025, 1, 13),    // 3 days back
+            "tuesday" => date(2025, 1, 14),   // 2 days back
+            "wednesday" => date(2025, 1, 15), // 1 day back
+            "thursday" => date(2025, 1, 9),   // 7 days back (same day, last week)
+            "friday" => date(2025, 1, 10),    // 6 days back
+            "saturday" => date(2025, 1, 11),  // 5 days back
+            "sunday" => date(2025, 1, 12),    // 4 days back
+            _ => panic!("Invalid weekday: {}", weekday),
+        }
+    }
+
+    /// Calculate expected date for "next <month>" from reference date
+    /// Reference: Jan 16, 2025
+    fn next_month_date(month: &str) -> Date {
+        match month {
+            "january" => date(2026, 1, 1),   // January passed, next is 2026
+            "february" => date(2025, 2, 1),  // Later in 2025
+            "march" => date(2025, 3, 1),
+            "april" => date(2025, 4, 1),
+            "may" => date(2025, 5, 1),
+            "june" => date(2025, 6, 1),
+            "july" => date(2025, 7, 1),
+            "august" => date(2025, 8, 1),
+            "september" => date(2025, 9, 1),
+            "october" => date(2025, 10, 1),
+            "november" => date(2025, 11, 1),
+            "december" => date(2025, 12, 1),
+            _ => panic!("Invalid month: {}", month),
+        }
+    }
+
+    /// Calculate expected date for "last <month>" from reference date
+    /// Reference: Jan 16, 2025
+    fn last_month_date(month: &str) -> Date {
+        match month {
+            "january" => date(2024, 1, 1),   // Last January was 2024
+            "february" => date(2024, 2, 1),  // Earlier in previous year
+            "march" => date(2024, 3, 1),
+            "april" => date(2024, 4, 1),
+            "may" => date(2024, 5, 1),
+            "june" => date(2024, 6, 1),
+            "july" => date(2024, 7, 1),
+            "august" => date(2024, 8, 1),
+            "september" => date(2024, 9, 1),
+            "october" => date(2024, 10, 1),
+            "november" => date(2024, 11, 1),
+            "december" => date(2024, 12, 1), // December was last month
+            _ => panic!("Invalid month: {}", month),
+        }
+    }
+
     #[test]
     fn test_today() {
         let now = test_timestamp();
@@ -1116,49 +1225,71 @@ mod tests {
 
     #[test]
     fn test_ago_all_strides() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025 12:00:00 UTC
 
-        // Table-driven test for all strides with "ago" pattern
+        // Table-driven test with expected timestamp values
         let test_cases = vec![
-            ("5 seconds ago", -5, "seconds"),
-            ("10 minutes ago", -10, "minutes"),
-            ("3 hours ago", -3, "hours"),
-            ("4 days ago", -4, "days"),
-            ("2 weeks ago", -2, "weeks"),
-            ("6 months ago", -6, "months"),
-            ("2 years ago", -2, "years"),
+            ("5 seconds ago", date(2025, 1, 16), Some((11, 59, 55))),  // 12:00:00 - 5s
+            ("10 minutes ago", date(2025, 1, 16), Some((11, 50, 0))),  // 12:00:00 - 10m
+            ("3 hours ago", date(2025, 1, 16), Some((9, 0, 0))),       // 12:00:00 - 3h
+            ("4 days ago", date(2025, 1, 12), None),       // Jan 16 - 4d = Jan 12
+            ("2 weeks ago", date(2025, 1, 2), None),       // Jan 16 - 14d = Jan 2
+            ("6 months ago", date(2024, 7, 16), None),     // 6 months back
+            ("2 years ago", date(2023, 1, 16), None),      // 2 years back
         ];
 
-        for (input, amount, unit) in test_cases {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse '{}' (expected {} {} ago)",
-                input,
-                amount,
-                unit
-            );
+        for (input, expected_date, time_check) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+
+            // Always check date using system timezone
+            let zoned_sys = result.to_zoned(TimeZone::system());
+            assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+
+            // Only check time for sub-day strides (seconds, minutes, hours)
+            if let Some((hour, minute, second)) = time_check {
+                let zoned_utc = result.to_zoned(TimeZone::UTC);
+                assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
+                assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+                if input.contains("seconds") {
+                    assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+                }
+            }
         }
     }
 
     #[test]
     fn test_from_now_all_strides() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025 12:00:00 UTC
 
-        // Table-driven test for all strides with "from now" pattern
+        // Table-driven test with expected timestamp values
         let test_cases = vec![
-            "5 seconds from now",
-            "10 minutes from now",
-            "3 hours from now",
-            "4 days from now",
-            "2 weeks from now",
-            "6 months from now",
-            "2 years from now",
+            ("5 seconds from now", date(2025, 1, 16), Some((12, 0, 5))),   // 12:00:00 + 5s
+            ("10 minutes from now", date(2025, 1, 16), Some((12, 10, 0))), // 12:00:00 + 10m
+            ("3 hours from now", date(2025, 1, 16), Some((15, 0, 0))),     // 12:00:00 + 3h
+            ("4 days from now", date(2025, 1, 20), None),      // Jan 16 + 4d = Jan 20
+            ("2 weeks from now", date(2025, 1, 30), None),     // Jan 16 + 14d = Jan 30
+            ("6 months from now", date(2025, 7, 16), None),    // 6 months forward
+            ("2 years from now", date(2027, 1, 16), None),     // 2 years forward
         ];
 
-        for input in test_cases {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(result.is_ok(), "Failed to parse '{}'", input);
+        for (input, expected_date, time_check) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+
+            // Always check date using system timezone
+            let zoned_sys = result.to_zoned(TimeZone::system());
+            assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+
+            // Only check time for sub-day strides (seconds, minutes, hours)
+            if let Some((hour, minute, second)) = time_check {
+                let zoned_utc = result.to_zoned(TimeZone::UTC);
+                assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
+                assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+                if input.contains("seconds") {
+                    assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+                }
+            }
         }
     }
 
@@ -1651,27 +1782,28 @@ mod tests {
 
     #[test]
     fn test_all_number_words() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025
 
         let test_cases = vec![
-            "in one days",
-            "in two days",
-            "in three days",
-            "in four days",
-            "in five days",
-            "in six days",
-            "in seven days",
-            "in eight days",
-            "in nine days",
-            "in ten days",
-            "in eleven days",
-            "in twelve days",
-            "in thirteen days",
+            ("in one days", date(2025, 1, 17)),
+            ("in two days", date(2025, 1, 18)),
+            ("in three days", date(2025, 1, 19)),
+            ("in four days", date(2025, 1, 20)),
+            ("in five days", date(2025, 1, 21)),
+            ("in six days", date(2025, 1, 22)),
+            ("in seven days", date(2025, 1, 23)),
+            ("in eight days", date(2025, 1, 24)),
+            ("in nine days", date(2025, 1, 25)),
+            ("in ten days", date(2025, 1, 26)),
+            ("in eleven days", date(2025, 1, 27)),
+            ("in twelve days", date(2025, 1, 28)),
+            ("in thirteen days", date(2025, 1, 29)),
         ];
 
-        for input in test_cases {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(result.is_ok(), "Failed to parse number word: '{}'", input);
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_date_matches(result, expected_date);
         }
     }
 
@@ -1711,88 +1843,236 @@ mod generative_tests {
             .timestamp()
     }
 
+    /// Helper to assert date matches, ignoring time components
+    fn assert_date_matches(result: Timestamp, expected_date: Date) {
+        let result_zoned = result.to_zoned(TimeZone::system());
+        assert_eq!(result_zoned.date(), expected_date);
+    }
+
+    /// Helper to assert both date and time match
+    fn assert_datetime_matches(
+        result: Timestamp,
+        expected_date: Date,
+        expected_hour: i8,
+        expected_minute: i8,
+    ) {
+        let zoned = result.to_zoned(TimeZone::system());
+        assert_eq!(zoned.date(), expected_date);
+        assert_eq!(zoned.hour(), expected_hour);
+        assert_eq!(zoned.minute(), expected_minute);
+    }
+
+    /// Helper to assert timestamp with optional time validation
+    fn assert_timestamp_with_time(
+        result: Timestamp,
+        expected_date: Date,
+        time_check: Option<(i8, i8, i8)>,
+        input: &str,
+    ) {
+        let zoned_sys = result.to_zoned(TimeZone::system());
+        assert_eq!(zoned_sys.date(), expected_date, "Date mismatch for '{}'", input);
+
+        if let Some((hour, minute, second)) = time_check {
+            let zoned_utc = result.to_zoned(TimeZone::UTC);
+            assert_eq!(zoned_utc.hour(), hour, "Hour mismatch for '{}'", input);
+            assert_eq!(zoned_utc.minute(), minute, "Minute mismatch for '{}'", input);
+            if input.contains("seconds") {
+                assert_eq!(zoned_utc.second(), second, "Second mismatch for '{}'", input);
+            }
+        }
+    }
+
+    /// Calculate expected date for "next <weekday>" - Reference: Thu Jan 16, 2025
+    fn next_weekday_date(weekday: &str) -> Date {
+        match weekday {
+            "monday" => date(2025, 1, 20),
+            "tuesday" => date(2025, 1, 21),
+            "wednesday" => date(2025, 1, 22),
+            "thursday" => date(2025, 1, 23),
+            "friday" => date(2025, 1, 17),
+            "saturday" => date(2025, 1, 18),
+            "sunday" => date(2025, 1, 19),
+            _ => panic!("Invalid weekday: {}", weekday),
+        }
+    }
+
+    /// Calculate expected date for "this <weekday>" - Reference: Thu Jan 16, 2025
+    fn this_weekday_date(weekday: &str) -> Date {
+        match weekday {
+            "monday" => date(2025, 1, 20),
+            "tuesday" => date(2025, 1, 21),
+            "wednesday" => date(2025, 1, 22),
+            "thursday" => date(2025, 1, 16),
+            "friday" => date(2025, 1, 17),
+            "saturday" => date(2025, 1, 18),
+            "sunday" => date(2025, 1, 19),
+            _ => panic!("Invalid weekday: {}", weekday),
+        }
+    }
+
+    /// Calculate expected date for "last <weekday>" - Reference: Thu Jan 16, 2025
+    fn last_weekday_date(weekday: &str) -> Date {
+        match weekday {
+            "monday" => date(2025, 1, 13),
+            "tuesday" => date(2025, 1, 14),
+            "wednesday" => date(2025, 1, 15),
+            "thursday" => date(2025, 1, 9),
+            "friday" => date(2025, 1, 10),
+            "saturday" => date(2025, 1, 11),
+            "sunday" => date(2025, 1, 12),
+            _ => panic!("Invalid weekday: {}", weekday),
+        }
+    }
+
+    /// Calculate expected date for "next <month>" - Reference: Jan 16, 2025
+    fn next_month_date(month: &str) -> Date {
+        match month {
+            "january" => date(2026, 1, 1),
+            "february" => date(2025, 2, 1),
+            "march" => date(2025, 3, 1),
+            "april" => date(2025, 4, 1),
+            "may" => date(2025, 5, 1),
+            "june" => date(2025, 6, 1),
+            "july" => date(2025, 7, 1),
+            "august" => date(2025, 8, 1),
+            "september" => date(2025, 9, 1),
+            "october" => date(2025, 10, 1),
+            "november" => date(2025, 11, 1),
+            "december" => date(2025, 12, 1),
+            _ => panic!("Invalid month: {}", month),
+        }
+    }
+
+    /// Calculate expected date for "last <month>" - Reference: Jan 16, 2025
+    fn last_month_date(month: &str) -> Date {
+        match month {
+            "january" => date(2024, 1, 1),
+            "february" => date(2024, 2, 1),
+            "march" => date(2024, 3, 1),
+            "april" => date(2024, 4, 1),
+            "may" => date(2024, 5, 1),
+            "june" => date(2024, 6, 1),
+            "july" => date(2024, 7, 1),
+            "august" => date(2024, 8, 1),
+            "september" => date(2024, 9, 1),
+            "october" => date(2024, 10, 1),
+            "november" => date(2024, 11, 1),
+            "december" => date(2024, 12, 1),
+            _ => panic!("Invalid month: {}", month),
+        }
+    }
+
     #[test]
     fn test_generated_all_strides_in_pattern() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025 12:00:00 UTC
 
-        let strides = vec![
-            "seconds", "minutes", "hours", "days", "weeks", "months", "years",
+        let test_cases = vec![
+            ("in 5 seconds", date(2025, 1, 16), Some((12, 0, 5))),
+            ("in 5 minutes", date(2025, 1, 16), Some((12, 5, 0))),
+            ("in 5 hours", date(2025, 1, 16), Some((17, 0, 0))),
+            ("in 5 days", date(2025, 1, 21), None),
+            ("in 5 weeks", date(2025, 2, 20), None),
+            ("in 5 months", date(2025, 6, 16), None),
+            ("in 5 years", date(2030, 1, 16), None),
         ];
 
-        for stride in strides {
-            let input = format!("in 5 {}", stride);
-            let result = NaturalDateParser::parse(&input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated input: '{}'",
-                input
-            );
+        for (input, expected_date, time_check) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_timestamp_with_time(result, expected_date, time_check, input);
         }
     }
 
     #[test]
     fn test_generated_all_strides_ago_pattern() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025 12:00:00 UTC
 
-        let strides = vec![
-            "seconds", "minutes", "hours", "days", "weeks", "months", "years",
+        let test_cases = vec![
+            ("5 seconds ago", date(2025, 1, 16), Some((11, 59, 55))),
+            ("5 minutes ago", date(2025, 1, 16), Some((11, 55, 0))),
+            ("5 hours ago", date(2025, 1, 16), Some((7, 0, 0))),
+            ("5 days ago", date(2025, 1, 11), None),
+            ("5 weeks ago", date(2024, 12, 12), None),
+            ("5 months ago", date(2024, 8, 16), None),
+            ("5 years ago", date(2020, 1, 16), None),
         ];
 
-        for stride in strides {
-            let input = format!("5 {} ago", stride);
-            let result = NaturalDateParser::parse(&input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated input: '{}'",
-                input
-            );
+        for (input, expected_date, time_check) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_timestamp_with_time(result, expected_date, time_check, input);
         }
     }
 
     #[test]
     fn test_generated_all_strides_from_now() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025 12:00:00 UTC
 
-        let strides = vec![
-            "seconds", "minutes", "hours", "days", "weeks", "months", "years",
+        let test_cases = vec![
+            ("5 seconds from now", date(2025, 1, 16), Some((12, 0, 5))),
+            ("5 minutes from now", date(2025, 1, 16), Some((12, 5, 0))),
+            ("5 hours from now", date(2025, 1, 16), Some((17, 0, 0))),
+            ("5 days from now", date(2025, 1, 21), None),
+            ("5 weeks from now", date(2025, 2, 20), None),
+            ("5 months from now", date(2025, 6, 16), None),
+            ("5 years from now", date(2030, 1, 16), None),
         ];
 
-        for stride in strides {
-            let input = format!("5 {} from now", stride);
-            let result = NaturalDateParser::parse(&input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated input: '{}'",
-                input
-            );
+        for (input, expected_date, time_check) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_timestamp_with_time(result, expected_date, time_check, input);
         }
     }
 
     #[test]
     fn test_all_weekdays_all_patterns() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
 
         let weekdays = vec![
             "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
         ];
-        let patterns = vec!["next", "this", "last", "on"];
 
-        for pattern in patterns {
-            for day in &weekdays {
-                let input = format!("{} {}", pattern, day);
-                let result = NaturalDateParser::parse(&input, now);
-                assert!(
-                    result.is_ok(),
-                    "Failed to parse generated input: '{}'",
-                    input
-                );
-            }
+        // Test "next" pattern for all weekdays
+        for day in &weekdays {
+            let input = format!("next {}", day);
+            let result = NaturalDateParser::parse(&input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            let expected_date = next_weekday_date(day);
+            assert_date_matches(result, expected_date);
+        }
+
+        // Test "this" pattern for all weekdays
+        for day in &weekdays {
+            let input = format!("this {}", day);
+            let result = NaturalDateParser::parse(&input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            let expected_date = this_weekday_date(day);
+            assert_date_matches(result, expected_date);
+        }
+
+        // Test "last" pattern for all weekdays
+        for day in &weekdays {
+            let input = format!("last {}", day);
+            let result = NaturalDateParser::parse(&input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            let expected_date = last_weekday_date(day);
+            assert_date_matches(result, expected_date);
+        }
+
+        // Test "on" pattern for all weekdays (behaves like "next")
+        for day in &weekdays {
+            let input = format!("on {}", day);
+            let result = NaturalDateParser::parse(&input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            let expected_date = next_weekday_date(day);
+            assert_date_matches(result, expected_date);
         }
     }
 
     #[test]
     fn test_all_months_next_pattern() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Jan 16, 2025
 
         let months = vec![
             "january", "february", "march", "april", "may", "june",
@@ -1801,18 +2081,16 @@ mod generative_tests {
 
         for month in months {
             let input = format!("next {}", month);
-            let result = NaturalDateParser::parse(&input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated input: '{}'",
-                input
-            );
+            let result = NaturalDateParser::parse(&input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            let expected_date = next_month_date(month);
+            assert_date_matches(result, expected_date);
         }
     }
 
     #[test]
     fn test_all_months_last_pattern() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Jan 16, 2025
 
         let months = vec![
             "january", "february", "march", "april", "may", "june",
@@ -1821,109 +2099,104 @@ mod generative_tests {
 
         for month in months {
             let input = format!("last {}", month);
-            let result = NaturalDateParser::parse(&input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated input: '{}'",
-                input
-            );
+            let result = NaturalDateParser::parse(&input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            let expected_date = last_month_date(month);
+            assert_date_matches(result, expected_date);
         }
     }
 
     #[test]
     fn test_generated_time_variations() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025
 
-        let time_variations = vec![
-            "tomorrow at 5",           // Hour only (no am/pm)
-            "tomorrow at 5 am",        // Hour with am
-            "tomorrow at 5 pm",        // Hour with pm
-            "tomorrow at 5:30",        // Hour:minute (no am/pm)
-            "tomorrow at 5:30 am",     // Hour:minute with am
-            "tomorrow at 5:30 pm",     // Hour:minute with pm
-            "tomorrow at 12 am",       // Midnight
-            "tomorrow at 12 pm",       // Noon
-            "tomorrow at 12:15 am",    // After midnight
-            "tomorrow at 12:15 pm",    // After noon
+        let test_cases = vec![
+            ("tomorrow at 5", date(2025, 1, 17), 5, 0),         // Hour only
+            ("tomorrow at 5 am", date(2025, 1, 17), 5, 0),
+            ("tomorrow at 5 pm", date(2025, 1, 17), 17, 0),
+            ("tomorrow at 5:30", date(2025, 1, 17), 5, 30),
+            ("tomorrow at 5:30 am", date(2025, 1, 17), 5, 30),
+            ("tomorrow at 5:30 pm", date(2025, 1, 17), 17, 30),
+            ("tomorrow at 12 am", date(2025, 1, 17), 0, 0),     // Midnight
+            ("tomorrow at 12 pm", date(2025, 1, 17), 12, 0),    // Noon
+            ("tomorrow at 12:15 am", date(2025, 1, 17), 0, 15),
+            ("tomorrow at 12:15 pm", date(2025, 1, 17), 12, 15),
         ];
 
-        for input in time_variations {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated time variation: '{}'",
-                input
-            );
+        for (input, expected_date, hour, minute) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_datetime_matches(result, expected_date, hour, minute);
         }
     }
 
     #[test]
     fn test_generated_combined_patterns() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025
 
-        let combined_patterns = vec![
-            "in 3 days at 5 pm",
-            "in 2 weeks at 9:30 am",
-            "in 1 months at 12 pm",
-            "3 days from now at 3 pm",
-            "2 weeks from now at 8 am",
-            "next monday at 10 am",
-            "last friday at 5:30 pm",
-            "this wednesday at 2 pm",
+        let test_cases = vec![
+            ("in 3 days at 5 pm", date(2025, 1, 19), 17, 0),
+            ("in 2 weeks at 9:30 am", date(2025, 1, 30), 9, 30),
+            ("in 1 months at 12 pm", date(2025, 2, 16), 12, 0),
+            ("3 days from now at 3 pm", date(2025, 1, 19), 15, 0),
+            ("2 weeks from now at 8 am", date(2025, 1, 30), 8, 0),
+            ("next monday at 10 am", date(2025, 1, 20), 10, 0),
+            ("last friday at 5:30 pm", date(2025, 1, 10), 17, 30),
+            ("this wednesday at 2 pm", date(2025, 1, 22), 14, 0),
         ];
 
-        for input in combined_patterns {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated combined pattern: '{}'",
-                input
-            );
+        for (input, expected_date, hour, minute) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_datetime_matches(result, expected_date, hour, minute);
         }
     }
 
     #[test]
     fn test_number_words_all_supported() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025
 
-        let number_words = vec![
-            "one", "two", "three", "four", "five", "six", "seven",
-            "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+        let test_cases = vec![
+            ("in one days", date(2025, 1, 17)),
+            ("in two days", date(2025, 1, 18)),
+            ("in three days", date(2025, 1, 19)),
+            ("in four days", date(2025, 1, 20)),
+            ("in five days", date(2025, 1, 21)),
+            ("in six days", date(2025, 1, 22)),
+            ("in seven days", date(2025, 1, 23)),
+            ("in eight days", date(2025, 1, 24)),
+            ("in nine days", date(2025, 1, 25)),
+            ("in ten days", date(2025, 1, 26)),
+            ("in eleven days", date(2025, 1, 27)),
+            ("in twelve days", date(2025, 1, 28)),
+            ("in thirteen days", date(2025, 1, 29)),
         ];
 
-        for word in number_words {
-            let input = format!("in {} days", word);
-            let result = NaturalDateParser::parse(&input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse number word: '{}'",
-                input
-            );
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_date_matches(result, expected_date);
         }
     }
 
     #[test]
     fn test_case_variations_generated() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025
 
         let test_cases = vec![
-            ("TOMORROW", "all uppercase"),
-            ("Tomorrow", "title case"),
-            ("tomorrow", "all lowercase"),
-            ("ToMoRrOw", "mixed case"),
-            ("NEXT FRIDAY", "all uppercase phrase"),
-            ("Next Friday", "title case phrase"),
-            ("next friday", "all lowercase phrase"),
+            ("TOMORROW", date(2025, 1, 17)),
+            ("Tomorrow", date(2025, 1, 17)),
+            ("tomorrow", date(2025, 1, 17)),
+            ("ToMoRrOw", date(2025, 1, 17)),
+            ("NEXT FRIDAY", date(2025, 1, 17)),
+            ("Next Friday", date(2025, 1, 17)),
+            ("next friday", date(2025, 1, 17)),
         ];
 
-        for (input, description) in test_cases {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse {} case variation: '{}'",
-                description,
-                input
-            );
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_date_matches(result, expected_date);
         }
     }
 
@@ -1972,33 +2245,26 @@ mod generative_tests {
 
     #[test]
     fn test_generated_moment_variations() {
-        let now = test_timestamp();
+        let now = test_timestamp(); // Thu Jan 16, 2025
 
-        // Test all TimeMoment types with different patterns
-        let moment_variations = vec![
-            // Weekday moments
-            "next monday",
-            "this friday",
-            "last wednesday",
-            // Month moments
-            "next march",
-            "last december",
-            // Week/Year moments
-            "next week",
-            "this week",
-            "last week",
-            "next year",
-            "this year",
-            "last year",
+        let test_cases = vec![
+            ("next monday", date(2025, 1, 20)),
+            ("this friday", date(2025, 1, 17)),
+            ("last wednesday", date(2025, 1, 15)),
+            ("next march", date(2025, 3, 1)),
+            ("last december", date(2024, 12, 1)),
+            ("next week", date(2025, 1, 23)),
+            ("this week", date(2025, 1, 16)),
+            ("last week", date(2025, 1, 9)),
+            ("next year", date(2026, 1, 1)),
+            ("this year", date(2025, 1, 1)),
+            ("last year", date(2024, 1, 1)),
         ];
 
-        for input in moment_variations {
-            let result = NaturalDateParser::parse(input, now);
-            assert!(
-                result.is_ok(),
-                "Failed to parse generated moment variation: '{}'",
-                input
-            );
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now)
+                .unwrap_or_else(|_| panic!("Failed to parse '{}'", input));
+            assert_date_matches(result, expected_date);
         }
     }
 }
