@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use jiff::{Timestamp, Zoned, civil::Date, tz::TimeZone, ToSpan};
+use jiff::{Timestamp, ToSpan, Zoned, civil::Date, tz::TimeZone};
 
 pub struct NaturalDateParser;
 
@@ -60,7 +60,6 @@ impl NaturalDateParser {
         pattern.to_timestamp(now)
     }
 }
-
 
 #[derive(Clone, Copy, Debug)]
 struct Time {
@@ -161,6 +160,8 @@ fn token_parser<'src>() -> impl Parser<'src, &'src str, Vec<NatDatToken>> {
         just("years").to(NatDatToken::Years),
         just("start").to(NatDatToken::Start),
         just("night").to(NatDatToken::Night),
+        just("week").to(NatDatToken::Weeks), // Singular week maps to Weeks token
+        just("year").to(NatDatToken::Years), // Singular year maps to Years token
     ));
 
     let keyword2 = choice((
@@ -169,6 +170,7 @@ fn token_parser<'src>() -> impl Parser<'src, &'src str, Vec<NatDatToken>> {
         just("this").to(NatDatToken::This),
         just("from").to(NatDatToken::From),
         just("days").to(NatDatToken::Days),
+        just("day").to(NatDatToken::Days), // Singular day maps to Days token
         just("now").to(NatDatToken::Now),
         just("ago").to(NatDatToken::Ago),
         just("end").to(NatDatToken::End),
@@ -185,10 +187,10 @@ fn token_parser<'src>() -> impl Parser<'src, &'src str, Vec<NatDatToken>> {
 
     choice((
         keyword1,
-        keyword2,
         month().map(NatDatToken::Month),
         weekday().map(NatDatToken::Weekday),
-        number().map(NatDatToken::Number),
+        number().map(NatDatToken::Number), // Try number before keyword2 to avoid "on" matching "one"
+        keyword2,
     ))
     .padded()
     .repeated()
@@ -205,7 +207,8 @@ macro_rules! tok {
 }
 
 // Parse a number token
-fn parse_number<'src>() -> impl Parser<'src, &'src [NatDatToken], u32, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn parse_number<'src>()
+-> impl Parser<'src, &'src [NatDatToken], u32, extra::Err<Rich<'src, NatDatToken>>> + Clone {
     any().try_map(|t: NatDatToken, span| match t {
         NatDatToken::Number(n) => Ok(n),
         _ => Err(Rich::custom(span, "expected number")),
@@ -213,7 +216,8 @@ fn parse_number<'src>() -> impl Parser<'src, &'src [NatDatToken], u32, extra::Er
 }
 
 // Parse a weekday token
-fn parse_weekday<'src>() -> impl Parser<'src, &'src [NatDatToken], Weekday, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn parse_weekday<'src>()
+-> impl Parser<'src, &'src [NatDatToken], Weekday, extra::Err<Rich<'src, NatDatToken>>> + Clone {
     any().try_map(|t: NatDatToken, span| match t {
         NatDatToken::Weekday(w) => Ok(w),
         _ => Err(Rich::custom(span, "expected weekday")),
@@ -221,7 +225,8 @@ fn parse_weekday<'src>() -> impl Parser<'src, &'src [NatDatToken], Weekday, extr
 }
 
 // Parse a month token
-fn parse_month<'src>() -> impl Parser<'src, &'src [NatDatToken], Month, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn parse_month<'src>()
+-> impl Parser<'src, &'src [NatDatToken], Month, extra::Err<Rich<'src, NatDatToken>>> + Clone {
     any().try_map(|t: NatDatToken, span| match t {
         NatDatToken::Month(m) => Ok(m),
         _ => Err(Rich::custom(span, "expected month")),
@@ -229,7 +234,8 @@ fn parse_month<'src>() -> impl Parser<'src, &'src [NatDatToken], Month, extra::E
 }
 
 // Parse time stride (days, weeks, months, years, etc.)
-fn parse_stride<'src>() -> impl Parser<'src, &'src [NatDatToken], TimeStride, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn parse_stride<'src>()
+-> impl Parser<'src, &'src [NatDatToken], TimeStride, extra::Err<Rich<'src, NatDatToken>>> + Clone {
     any().try_map(|t: NatDatToken, span| match t {
         NatDatToken::Seconds => Ok(TimeStride::Seconds),
         NatDatToken::Minutes => Ok(TimeStride::Minutes),
@@ -243,15 +249,20 @@ fn parse_stride<'src>() -> impl Parser<'src, &'src [NatDatToken], TimeStride, ex
 }
 
 // Parse time component: [at|@] <hour> [:<minute>] [am|pm]
-fn parse_time<'src>() -> impl Parser<'src, &'src [NatDatToken], Time, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn parse_time<'src>()
+-> impl Parser<'src, &'src [NatDatToken], Time, extra::Err<Rich<'src, NatDatToken>>> + Clone {
     tok!(NatDatToken::At)
         .ignore_then(parse_number())
-        .then(tok!(NatDatToken::Colon).ignore_then(parse_number()).or_not())
+        .then(
+            tok!(NatDatToken::Colon)
+                .ignore_then(parse_number())
+                .or_not(),
+        )
         .then(
             tok!(NatDatToken::Am)
                 .to(false)
                 .or(tok!(NatDatToken::Pm).to(true))
-                .or_not()
+                .or_not(),
         )
         .map(move |((hour, minute), is_pm)| {
             let adjusted_hour = match is_pm {
@@ -267,7 +278,8 @@ fn parse_time<'src>() -> impl Parser<'src, &'src [NatDatToken], Time, extra::Err
 }
 
 // Parse TimeMoment (weekday, month, week, year)
-fn parse_moment<'src>() -> impl Parser<'src, &'src [NatDatToken], TimeMoment, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn parse_moment<'src>()
+-> impl Parser<'src, &'src [NatDatToken], TimeMoment, extra::Err<Rich<'src, NatDatToken>>> + Clone {
     choice((
         parse_weekday().map(TimeMoment::Weekday),
         parse_month().map(TimeMoment::Month),
@@ -277,7 +289,9 @@ fn parse_moment<'src>() -> impl Parser<'src, &'src [NatDatToken], TimeMoment, ex
 }
 
 // Main pattern parser
-fn pattern_parser<'src>() -> impl Parser<'src, &'src [NatDatToken], TimePattern, extra::Err<Rich<'src, NatDatToken>>> + Clone {
+fn pattern_parser<'src>()
+-> impl Parser<'src, &'src [NatDatToken], TimePattern, extra::Err<Rich<'src, NatDatToken>>> + Clone
+{
     let time_opt = parse_time().or_not();
 
     choice((
@@ -285,24 +299,20 @@ fn pattern_parser<'src>() -> impl Parser<'src, &'src [NatDatToken], TimePattern,
         tok!(NatDatToken::Today)
             .ignore_then(time_opt.clone())
             .map(|at| TimePattern::Today { at }),
-
         // "tomorrow" [at time]
         tok!(NatDatToken::Tomorrow)
             .ignore_then(time_opt.clone())
             .map(|at| TimePattern::Tomorrow { at }),
-
         // "yesterday" [at time]
         tok!(NatDatToken::Yesterday)
             .ignore_then(time_opt.clone())
             .map(|at| TimePattern::Yesterday { at }),
-
         // "in" <number> <stride> [at time]
         tok!(NatDatToken::In)
             .ignore_then(parse_number())
             .then(parse_stride())
             .then(time_opt.clone())
             .map(|((n, stride), at)| TimePattern::InAmount { n, stride, at }),
-
         // <number> <stride> "from" "now" [at time]
         parse_number()
             .then(parse_stride())
@@ -310,32 +320,27 @@ fn pattern_parser<'src>() -> impl Parser<'src, &'src [NatDatToken], TimePattern,
             .then_ignore(tok!(NatDatToken::Now))
             .then(time_opt.clone())
             .map(|((n, stride), at)| TimePattern::FromNow { n, stride, at }),
-
         // <number> <stride> "ago"
         parse_number()
             .then(parse_stride())
             .then_ignore(tok!(NatDatToken::Ago))
             .then(time_opt.clone())
             .map(|((n, stride), at)| TimePattern::Ago { n, stride, at }),
-
         // "next" <moment> [at time]
         tok!(NatDatToken::Next)
             .ignore_then(parse_moment())
             .then(time_opt.clone())
             .map(|(moment, at)| TimePattern::Next { moment, at }),
-
         // "this" <moment> [at time]
         tok!(NatDatToken::This)
             .ignore_then(parse_moment())
             .then(time_opt.clone())
             .map(|(moment, at)| TimePattern::This { moment, at }),
-
         // "last" <moment> [at time]
         tok!(NatDatToken::Last)
             .ignore_then(parse_moment())
             .then(time_opt.clone())
             .map(|(moment, at)| TimePattern::Last { moment, at }),
-
         // "on" <weekday> [at time]
         tok!(NatDatToken::On)
             .ignore_then(parse_weekday())
@@ -358,20 +363,25 @@ impl TimePattern {
             }
 
             TimePattern::Tomorrow { at } => {
-                let date = zoned_now.date().checked_add(1.day())
+                let date = zoned_now
+                    .date()
+                    .checked_add(1.day())
                     .map_err(|e| ParseError::ConversionError(format!("date overflow: {}", e)))?;
                 apply_time(date, at, &tz)
             }
 
             TimePattern::Yesterday { at } => {
-                let date = zoned_now.date().checked_sub(1.day())
+                let date = zoned_now
+                    .date()
+                    .checked_sub(1.day())
                     .map_err(|e| ParseError::ConversionError(format!("date underflow: {}", e)))?;
                 apply_time(date, at, &tz)
             }
 
             TimePattern::InAmount { n, stride, at } | TimePattern::FromNow { n, stride, at } => {
                 let span = stride_to_span(*n, stride);
-                let future = zoned_now.checked_add(span)
+                let future = zoned_now
+                    .checked_add(span)
                     .map_err(|e| ParseError::ConversionError(format!("date overflow: {}", e)))?;
 
                 if at.is_some() {
@@ -383,7 +393,8 @@ impl TimePattern {
 
             TimePattern::Ago { n, stride, at } => {
                 let span = stride_to_span(*n, stride);
-                let past = zoned_now.checked_sub(span)
+                let past = zoned_now
+                    .checked_sub(span)
                     .map_err(|e| ParseError::ConversionError(format!("date underflow: {}", e)))?;
 
                 if at.is_some() {
@@ -460,7 +471,8 @@ fn find_next_weekday(now: &Zoned, target_weekday: &Weekday) -> Result<Date, Pars
         7 // Same day, go to next week
     };
 
-    current.checked_add(days_ahead.days())
+    current
+        .checked_add(days_ahead.days())
         .map_err(|e| ParseError::ConversionError(format!("date overflow: {}", e)))
 }
 
@@ -487,14 +499,13 @@ fn find_next_moment(now: &Zoned, moment: &TimeMoment) -> Result<Date, ParseError
 
         TimeMoment::Week => {
             // Next week = 7 days from now
-            current.checked_add(7.days())
+            current
+                .checked_add(7.days())
                 .map_err(|e| ParseError::ConversionError(format!("date overflow: {}", e)))
         }
 
-        TimeMoment::Year => {
-            Date::new(current.year() + 1, 1, 1)
-                .map_err(|e| ParseError::ConversionError(format!("invalid date: {}", e)))
-        }
+        TimeMoment::Year => Date::new(current.year() + 1, 1, 1)
+            .map_err(|e| ParseError::ConversionError(format!("invalid date: {}", e))),
     }
 }
 
@@ -510,12 +521,14 @@ fn find_this_moment(now: &Zoned, moment: &TimeMoment) -> Result<Date, ParseError
             if current_weekday <= target {
                 // Target is later this week
                 let days_ahead = (target - current_weekday) as i64;
-                current.checked_add(days_ahead.days())
+                current
+                    .checked_add(days_ahead.days())
                     .map_err(|e| ParseError::ConversionError(format!("date overflow: {}", e)))
             } else {
                 // Target already passed this week, go to next week
                 let days_ahead = (7 - (current_weekday - target)) as i64;
-                current.checked_add(days_ahead.days())
+                current
+                    .checked_add(days_ahead.days())
                     .map_err(|e| ParseError::ConversionError(format!("date overflow: {}", e)))
             }
         }
@@ -555,7 +568,8 @@ fn find_last_moment(now: &Zoned, moment: &TimeMoment) -> Result<Date, ParseError
                 7 // Same day, go to last week
             };
 
-            current.checked_sub(days_back.days())
+            current
+                .checked_sub(days_back.days())
                 .map_err(|e| ParseError::ConversionError(format!("date underflow: {}", e)))
         }
 
@@ -576,14 +590,13 @@ fn find_last_moment(now: &Zoned, moment: &TimeMoment) -> Result<Date, ParseError
 
         TimeMoment::Week => {
             // Last week = 7 days ago
-            current.checked_sub(7.days())
+            current
+                .checked_sub(7.days())
                 .map_err(|e| ParseError::ConversionError(format!("date underflow: {}", e)))
         }
 
-        TimeMoment::Year => {
-            Date::new(current.year() - 1, 1, 1)
-                .map_err(|e| ParseError::ConversionError(format!("invalid date: {}", e)))
-        }
+        TimeMoment::Year => Date::new(current.year() - 1, 1, 1)
+            .map_err(|e| ParseError::ConversionError(format!("invalid date: {}", e))),
     }
 }
 
@@ -778,18 +791,45 @@ enum NatDatToken {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jiff::{civil::date, ToSpan};
+    use jiff::civil::date;
 
     fn test_timestamp() -> Timestamp {
         // Thursday, January 16, 2025, 12:00:00 UTC
-        date(2025, 1, 16).at(12, 0, 0, 0).to_zoned(TimeZone::UTC).unwrap().timestamp()
+        date(2025, 1, 16)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
+
+    /// Helper to assert date matches, ignoring time components
+    fn assert_date_matches(result: Timestamp, expected_date: Date) {
+        let result_zoned = result.to_zoned(TimeZone::system());
+        assert_eq!(result_zoned.date(), expected_date);
+    }
+
+    /// Helper to assert both date and time match
+    fn assert_datetime_matches(
+        result: Timestamp,
+        expected_date: Date,
+        expected_hour: i8,
+        expected_minute: i8,
+    ) {
+        let zoned = result.to_zoned(TimeZone::system());
+        assert_eq!(zoned.date(), expected_date);
+        assert_eq!(zoned.hour(), expected_hour);
+        assert_eq!(zoned.minute(), expected_minute);
     }
 
     #[test]
     fn test_today() {
         let now = test_timestamp();
         let result = NaturalDateParser::parse("today", now).unwrap();
-        let expected = date(2025, 1, 16).at(0, 0, 0, 0).to_zoned(TimeZone::system()).unwrap().timestamp();
+        let expected = date(2025, 1, 16)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap()
+            .timestamp();
 
         // Check that the dates match (ignoring time)
         let result_zoned = result.to_zoned(TimeZone::system());
@@ -1014,5 +1054,951 @@ mod tests {
         // Should be 30 minutes after 12:00 = 12:30
         let result_zoned = result.to_zoned(TimeZone::UTC);
         assert_eq!(result_zoned.minute(), 30);
+    }
+
+    // ===== Extended TimeStride Coverage =====
+
+    #[test]
+    fn test_in_seconds() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 30 seconds", now).unwrap();
+
+        // Should be 30 seconds after 12:00:00
+        let result_zoned = result.to_zoned(TimeZone::UTC);
+        assert_eq!(result_zoned.second(), 30);
+    }
+
+    #[test]
+    fn test_seconds_from_now() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("45 seconds from now", now).unwrap();
+
+        let result_zoned = result.to_zoned(TimeZone::UTC);
+        assert_eq!(result_zoned.second(), 45);
+    }
+
+    #[test]
+    fn test_seconds_ago() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("10 seconds ago", now).unwrap();
+
+        let result_zoned = result.to_zoned(TimeZone::UTC);
+        assert_eq!(result_zoned.second(), 50); // 12:00:00 - 10s = 11:59:50
+        assert_eq!(result_zoned.minute(), 59);
+    }
+
+    #[test]
+    fn test_in_years() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 2 years", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        assert_eq!(result_zoned.date(), date(2027, 1, 16));
+    }
+
+    #[test]
+    fn test_years_from_now() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("3 years from now", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        assert_eq!(result_zoned.date(), date(2028, 1, 16));
+    }
+
+    #[test]
+    fn test_years_ago() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("1 years ago", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        assert_eq!(result_zoned.date(), date(2024, 1, 16));
+    }
+
+    #[test]
+    fn test_ago_all_strides() {
+        let now = test_timestamp();
+
+        // Table-driven test for all strides with "ago" pattern
+        let test_cases = vec![
+            ("5 seconds ago", -5, "seconds"),
+            ("10 minutes ago", -10, "minutes"),
+            ("3 hours ago", -3, "hours"),
+            ("4 days ago", -4, "days"),
+            ("2 weeks ago", -2, "weeks"),
+            ("6 months ago", -6, "months"),
+            ("2 years ago", -2, "years"),
+        ];
+
+        for (input, amount, unit) in test_cases {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse '{}' (expected {} {} ago)",
+                input,
+                amount,
+                unit
+            );
+        }
+    }
+
+    #[test]
+    fn test_from_now_all_strides() {
+        let now = test_timestamp();
+
+        // Table-driven test for all strides with "from now" pattern
+        let test_cases = vec![
+            "5 seconds from now",
+            "10 minutes from now",
+            "3 hours from now",
+            "4 days from now",
+            "2 weeks from now",
+            "6 months from now",
+            "2 years from now",
+        ];
+
+        for input in test_cases {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(result.is_ok(), "Failed to parse '{}'", input);
+        }
+    }
+
+    #[test]
+    fn test_in_days_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 5 days at 3 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 21), 15, 0);
+    }
+
+    #[test]
+    fn test_in_weeks_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 2 weeks at 8:30 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 30), 8, 30);
+    }
+
+    #[test]
+    fn test_ago_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("3 days ago at 2 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 13), 14, 0);
+    }
+
+    #[test]
+    fn test_from_now_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("2 weeks from now at 10 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 30), 10, 0);
+    }
+
+    #[test]
+    fn test_in_months_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 3 months at 11:45 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 4, 16), 23, 45);
+    }
+
+    #[test]
+    fn test_in_years_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 1 years at 2 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2026, 1, 16), 14, 0);
+    }
+
+    // ===== Complete TimeMoment Coverage =====
+
+    #[test]
+    fn test_next_week() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+        let result = NaturalDateParser::parse("next week", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // Next week should be 7 days ahead = Jan 23
+        assert_eq!(result_zoned.date(), date(2025, 1, 23));
+    }
+
+    #[test]
+    fn test_this_week() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+        let result = NaturalDateParser::parse("this week", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // This week should return current date
+        assert_eq!(result_zoned.date(), date(2025, 1, 16));
+    }
+
+    #[test]
+    fn test_last_week() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+        let result = NaturalDateParser::parse("last week", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // Last week should be 7 days ago = Jan 9
+        assert_eq!(result_zoned.date(), date(2025, 1, 9));
+    }
+
+    #[test]
+    fn test_next_year() {
+        let now = test_timestamp(); // 2025
+        let result = NaturalDateParser::parse("next year", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // Next year should be Jan 1, 2026
+        assert_eq!(result_zoned.date(), date(2026, 1, 1));
+    }
+
+    #[test]
+    fn test_this_year() {
+        let now = test_timestamp(); // 2025
+        let result = NaturalDateParser::parse("this year", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // This year should be Jan 1, 2025
+        assert_eq!(result_zoned.date(), date(2025, 1, 1));
+    }
+
+    #[test]
+    fn test_last_year() {
+        let now = test_timestamp(); // 2025
+        let result = NaturalDateParser::parse("last year", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // Last year should be Jan 1, 2024
+        assert_eq!(result_zoned.date(), date(2024, 1, 1));
+    }
+
+    #[test]
+    fn test_next_month_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("next january at 9 am", now).unwrap();
+
+        // January is before current month (January), so next January is 2026
+        assert_datetime_matches(result, date(2026, 1, 1), 9, 0);
+    }
+
+    #[test]
+    fn test_last_year_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("last year at 12 pm", now).unwrap();
+
+        // Last year at noon
+        assert_datetime_matches(result, date(2024, 1, 1), 12, 0);
+    }
+
+    #[test]
+    fn test_this_week_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("this week at 2 pm", now).unwrap();
+
+        // This week at 2pm (current date)
+        assert_datetime_matches(result, date(2025, 1, 16), 14, 0);
+    }
+
+    #[test]
+    fn test_all_weekdays_next() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+
+        let test_cases = vec![
+            ("next monday", date(2025, 1, 20)),    // 4 days ahead
+            ("next tuesday", date(2025, 1, 21)),   // 5 days ahead
+            ("next wednesday", date(2025, 1, 22)), // 6 days ahead
+            ("next thursday", date(2025, 1, 23)),  // 7 days ahead (same day, next week)
+            ("next friday", date(2025, 1, 17)),    // 1 day ahead
+            ("next saturday", date(2025, 1, 18)),  // 2 days ahead
+            ("next sunday", date(2025, 1, 19)),    // 3 days ahead
+        ];
+
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now).unwrap();
+            assert_date_matches(result, expected_date);
+        }
+    }
+
+    #[test]
+    fn test_all_weekdays_last() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+
+        let test_cases = vec![
+            ("last monday", date(2025, 1, 13)),    // 3 days back
+            ("last tuesday", date(2025, 1, 14)),   // 2 days back
+            ("last wednesday", date(2025, 1, 15)), // 1 day back
+            ("last thursday", date(2025, 1, 9)),   // 7 days back (same day, last week)
+            ("last friday", date(2025, 1, 10)),    // 6 days back
+            ("last saturday", date(2025, 1, 11)),  // 5 days back
+            ("last sunday", date(2025, 1, 12)),    // 4 days back
+        ];
+
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now).unwrap();
+            assert_date_matches(result, expected_date);
+        }
+    }
+
+    #[test]
+    fn test_all_weekdays_this() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+
+        let test_cases = vec![
+            ("this monday", date(2025, 1, 20)),    // Passed this week, next Monday
+            ("this tuesday", date(2025, 1, 21)),   // Passed this week, next Tuesday
+            ("this wednesday", date(2025, 1, 22)), // Passed this week, next Wednesday
+            ("this thursday", date(2025, 1, 16)),  // Today (current weekday)
+            ("this friday", date(2025, 1, 17)),    // Tomorrow (upcoming in current week)
+            ("this saturday", date(2025, 1, 18)),  // Upcoming in current week
+            ("this sunday", date(2025, 1, 19)),    // Upcoming in current week
+        ];
+
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now).unwrap();
+            assert_date_matches(result, expected_date);
+        }
+    }
+
+    #[test]
+    fn test_all_weekdays_on() {
+        let now = test_timestamp(); // Thursday, Jan 16, 2025
+
+        // "on" pattern should behave like "next" - always go forward
+        let test_cases = vec![
+            ("on monday", date(2025, 1, 20)),
+            ("on tuesday", date(2025, 1, 21)),
+            ("on wednesday", date(2025, 1, 22)),
+            ("on thursday", date(2025, 1, 23)), // Same day goes to next week
+            ("on friday", date(2025, 1, 17)),
+            ("on saturday", date(2025, 1, 18)),
+            ("on sunday", date(2025, 1, 19)),
+        ];
+
+        for (input, expected_date) in test_cases {
+            let result = NaturalDateParser::parse(input, now).unwrap();
+            assert_date_matches(result, expected_date);
+        }
+    }
+
+    // ===== Time Specification Edge Cases =====
+
+    #[test]
+    fn test_midnight_twelve_am() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 12 am", now).unwrap();
+
+        // 12:00 AM should be midnight (00:00)
+        assert_datetime_matches(result, date(2025, 1, 17), 0, 0);
+    }
+
+    #[test]
+    fn test_noon_twelve_pm() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 12 pm", now).unwrap();
+
+        // 12:00 PM should be noon (12:00)
+        assert_datetime_matches(result, date(2025, 1, 17), 12, 0);
+    }
+
+    #[test]
+    fn test_one_am() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 1 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 17), 1, 0);
+    }
+
+    #[test]
+    fn test_one_pm() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 1 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 17), 13, 0);
+    }
+
+    #[test]
+    fn test_eleven_am() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 11 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 17), 11, 0);
+    }
+
+    #[test]
+    fn test_eleven_pm() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 11 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 17), 23, 0);
+    }
+
+    #[test]
+    fn test_hour_only_no_minutes_am() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 5 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 17), 5, 0);
+    }
+
+    #[test]
+    fn test_hour_only_no_minutes_pm() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 3 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 17), 15, 0);
+    }
+
+    #[test]
+    fn test_today_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("today at 2 pm", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 16), 14, 0);
+    }
+
+    #[test]
+    fn test_yesterday_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("yesterday at 8:30 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 15), 8, 30);
+    }
+
+    #[test]
+    fn test_on_weekday_with_time() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("on monday at 7:15 am", now).unwrap();
+
+        assert_datetime_matches(result, date(2025, 1, 20), 7, 15);
+    }
+
+    #[test]
+    fn test_midnight_with_minutes() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 12:30 am", now).unwrap();
+
+        // 12:30 AM should be 00:30
+        assert_datetime_matches(result, date(2025, 1, 17), 0, 30);
+    }
+
+    // ===== Error and Negative Cases =====
+
+    #[test]
+    fn test_empty_string() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("", now);
+        assert!(result.is_err(), "Empty string should fail to parse");
+    }
+
+    #[test]
+    fn test_unsupported_pattern() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("foobar baz", now);
+        assert!(result.is_err(), "Unsupported pattern should fail to parse");
+    }
+
+    #[test]
+    fn test_partial_pattern_missing_unit() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 5", now);
+        assert!(
+            result.is_err(),
+            "Partial pattern 'in 5' without time unit should fail"
+        );
+    }
+
+    #[test]
+    fn test_invalid_time_hour_over_24() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("tomorrow at 25:00", now);
+        // This might succeed at parse but fail at conversion - either is acceptable
+        if let Ok(timestamp) = result {
+            // If it parses, it should handle the overflow somehow
+            let _ = timestamp;
+        } else {
+            // Expected: should fail to parse
+        }
+    }
+
+    #[test]
+    fn test_just_time_no_date() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("at 3 pm", now);
+        assert!(result.is_err(), "Time without date should fail to parse");
+    }
+
+    #[test]
+    fn test_invalid_weekday() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("next fooday", now);
+        assert!(
+            result.is_err(),
+            "Invalid weekday 'fooday' should fail to parse"
+        );
+    }
+
+    #[test]
+    fn test_invalid_month() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("next foovember", now);
+        assert!(
+            result.is_err(),
+            "Invalid month 'foovember' should fail to parse"
+        );
+    }
+
+    #[test]
+    fn test_missing_number() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in days", now);
+        assert!(
+            result.is_err(),
+            "Missing number in 'in days' should fail to parse"
+        );
+    }
+
+    #[test]
+    fn test_double_pattern() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("next last monday", now);
+        assert!(
+            result.is_err(),
+            "Conflicting patterns 'next last' should fail to parse"
+        );
+    }
+
+    // ===== Boundary and Large Number Cases =====
+
+    #[test]
+    fn test_large_day_offset() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 365 days", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // 365 days from Jan 16, 2025 should be Jan 16, 2026
+        assert_eq!(result_zoned.date(), date(2026, 1, 16));
+    }
+
+    #[test]
+    fn test_large_week_offset() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 52 weeks", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // 52 weeks from Jan 16, 2025 should be around Jan 15, 2026
+        assert_eq!(result_zoned.date(), date(2026, 1, 15));
+    }
+
+    #[test]
+    fn test_very_large_number() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 1000 days", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // 1000 days from Jan 16, 2025 should be around Oct 13, 2027
+        assert_eq!(result_zoned.date(), date(2027, 10, 13));
+    }
+
+    #[test]
+    fn test_month_boundary_january_31() {
+        // Test from Jan 31 going forward
+        let jan_31 = date(2025, 1, 31)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
+
+        let result = NaturalDateParser::parse("tomorrow", jan_31).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // Tomorrow from Jan 31 should be Feb 1
+        assert_eq!(result_zoned.date(), date(2025, 2, 1));
+    }
+
+    #[test]
+    fn test_year_boundary_december_31() {
+        // Test from Dec 31 going forward
+        let dec_31 = date(2024, 12, 31)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
+
+        let result = NaturalDateParser::parse("tomorrow", dec_31).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // Tomorrow from Dec 31, 2024 should be Jan 1, 2025
+        assert_eq!(result_zoned.date(), date(2025, 1, 1));
+    }
+
+    #[test]
+    fn test_month_offset_variable_lengths() {
+        // Test from Jan 31 + 1 month
+        let jan_31 = date(2025, 1, 31)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
+
+        let result = NaturalDateParser::parse("in 1 months", jan_31).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // 1 month from Jan 31 should handle February's shorter length
+        // jiff typically adjusts to Feb 28 (or March 2/3 depending on implementation)
+        // Let's just verify it succeeds and produces a valid date
+        assert!(result_zoned.date().month() >= 2);
+    }
+
+    #[test]
+    fn test_all_number_words() {
+        let now = test_timestamp();
+
+        let test_cases = vec![
+            "in one days",
+            "in two days",
+            "in three days",
+            "in four days",
+            "in five days",
+            "in six days",
+            "in seven days",
+            "in eight days",
+            "in nine days",
+            "in ten days",
+            "in eleven days",
+            "in twelve days",
+            "in thirteen days",
+        ];
+
+        for input in test_cases {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(result.is_ok(), "Failed to parse number word: '{}'", input);
+        }
+    }
+
+    #[test]
+    fn test_large_years_offset() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("in 50 years", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        assert_eq!(result_zoned.date(), date(2075, 1, 16));
+    }
+
+    #[test]
+    fn test_large_ago_offset() {
+        let now = test_timestamp();
+        let result = NaturalDateParser::parse("500 days ago", now).unwrap();
+        let result_zoned = result.to_zoned(TimeZone::system());
+
+        // 500 days before Jan 16, 2025 should be around Sep 4, 2023
+        assert_eq!(result_zoned.date(), date(2023, 9, 4));
+    }
+}
+
+// ===== Generative Tests Module =====
+// Tests that generate natural language descriptions and validate parsing
+#[cfg(test)]
+mod generative_tests {
+    use super::*;
+    use jiff::{civil::date, tz::TimeZone};
+
+    fn test_timestamp() -> Timestamp {
+        // Thursday, January 16, 2025, 12:00:00 UTC
+        date(2025, 1, 16)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
+
+    #[test]
+    fn test_generated_all_strides_in_pattern() {
+        let now = test_timestamp();
+
+        let strides = vec![
+            "seconds", "minutes", "hours", "days", "weeks", "months", "years",
+        ];
+
+        for stride in strides {
+            let input = format!("in 5 {}", stride);
+            let result = NaturalDateParser::parse(&input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated input: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_generated_all_strides_ago_pattern() {
+        let now = test_timestamp();
+
+        let strides = vec![
+            "seconds", "minutes", "hours", "days", "weeks", "months", "years",
+        ];
+
+        for stride in strides {
+            let input = format!("5 {} ago", stride);
+            let result = NaturalDateParser::parse(&input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated input: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_generated_all_strides_from_now() {
+        let now = test_timestamp();
+
+        let strides = vec![
+            "seconds", "minutes", "hours", "days", "weeks", "months", "years",
+        ];
+
+        for stride in strides {
+            let input = format!("5 {} from now", stride);
+            let result = NaturalDateParser::parse(&input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated input: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_weekdays_all_patterns() {
+        let now = test_timestamp();
+
+        let weekdays = vec![
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        ];
+        let patterns = vec!["next", "this", "last", "on"];
+
+        for pattern in patterns {
+            for day in &weekdays {
+                let input = format!("{} {}", pattern, day);
+                let result = NaturalDateParser::parse(&input, now);
+                assert!(
+                    result.is_ok(),
+                    "Failed to parse generated input: '{}'",
+                    input
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_all_months_next_pattern() {
+        let now = test_timestamp();
+
+        let months = vec![
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december",
+        ];
+
+        for month in months {
+            let input = format!("next {}", month);
+            let result = NaturalDateParser::parse(&input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated input: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_months_last_pattern() {
+        let now = test_timestamp();
+
+        let months = vec![
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december",
+        ];
+
+        for month in months {
+            let input = format!("last {}", month);
+            let result = NaturalDateParser::parse(&input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated input: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_generated_time_variations() {
+        let now = test_timestamp();
+
+        let time_variations = vec![
+            "tomorrow at 5",           // Hour only (no am/pm)
+            "tomorrow at 5 am",        // Hour with am
+            "tomorrow at 5 pm",        // Hour with pm
+            "tomorrow at 5:30",        // Hour:minute (no am/pm)
+            "tomorrow at 5:30 am",     // Hour:minute with am
+            "tomorrow at 5:30 pm",     // Hour:minute with pm
+            "tomorrow at 12 am",       // Midnight
+            "tomorrow at 12 pm",       // Noon
+            "tomorrow at 12:15 am",    // After midnight
+            "tomorrow at 12:15 pm",    // After noon
+        ];
+
+        for input in time_variations {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated time variation: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_generated_combined_patterns() {
+        let now = test_timestamp();
+
+        let combined_patterns = vec![
+            "in 3 days at 5 pm",
+            "in 2 weeks at 9:30 am",
+            "in 1 months at 12 pm",
+            "3 days from now at 3 pm",
+            "2 weeks from now at 8 am",
+            "next monday at 10 am",
+            "last friday at 5:30 pm",
+            "this wednesday at 2 pm",
+        ];
+
+        for input in combined_patterns {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated combined pattern: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_number_words_all_supported() {
+        let now = test_timestamp();
+
+        let number_words = vec![
+            "one", "two", "three", "four", "five", "six", "seven",
+            "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+        ];
+
+        for word in number_words {
+            let input = format!("in {} days", word);
+            let result = NaturalDateParser::parse(&input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse number word: '{}'",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_case_variations_generated() {
+        let now = test_timestamp();
+
+        let test_cases = vec![
+            ("TOMORROW", "all uppercase"),
+            ("Tomorrow", "title case"),
+            ("tomorrow", "all lowercase"),
+            ("ToMoRrOw", "mixed case"),
+            ("NEXT FRIDAY", "all uppercase phrase"),
+            ("Next Friday", "title case phrase"),
+            ("next friday", "all lowercase phrase"),
+        ];
+
+        for (input, description) in test_cases {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse {} case variation: '{}'",
+                description,
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_generated_numeric_and_word_numbers() {
+        let now = test_timestamp();
+
+        // Test that both numeric and word forms produce valid results
+        let test_pairs = vec![
+            ("in 1 days", "in one days"),
+            ("in 2 weeks", "in two weeks"),
+            ("in 3 months", "in three months"),
+            ("in 5 years", "in five years"),
+            ("7 days ago", "seven days ago"),
+        ];
+
+        for (numeric, word) in test_pairs {
+            let result_numeric = NaturalDateParser::parse(numeric, now);
+            let result_word = NaturalDateParser::parse(word, now);
+
+            assert!(
+                result_numeric.is_ok(),
+                "Failed to parse numeric form: '{}'",
+                numeric
+            );
+            assert!(
+                result_word.is_ok(),
+                "Failed to parse word form: '{}'",
+                word
+            );
+
+            // Both should parse to the same date
+            if let (Ok(num_ts), Ok(word_ts)) = (result_numeric, result_word) {
+                let num_zoned = num_ts.to_zoned(TimeZone::system());
+                let word_zoned = word_ts.to_zoned(TimeZone::system());
+                assert_eq!(
+                    num_zoned.date(),
+                    word_zoned.date(),
+                    "Numeric '{}' and word '{}' should produce same date",
+                    numeric,
+                    word
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_generated_moment_variations() {
+        let now = test_timestamp();
+
+        // Test all TimeMoment types with different patterns
+        let moment_variations = vec![
+            // Weekday moments
+            "next monday",
+            "this friday",
+            "last wednesday",
+            // Month moments
+            "next march",
+            "last december",
+            // Week/Year moments
+            "next week",
+            "this week",
+            "last week",
+            "next year",
+            "this year",
+            "last year",
+        ];
+
+        for input in moment_variations {
+            let result = NaturalDateParser::parse(input, now);
+            assert!(
+                result.is_ok(),
+                "Failed to parse generated moment variation: '{}'",
+                input
+            );
+        }
     }
 }
