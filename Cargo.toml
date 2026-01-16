@@ -45,5 +45,9 @@ jiff = { version = "0.2.18", features = ["serde"] }
 [dev-dependencies]
 insta = { version = "1.43.2", features = ["glob", "yaml"] }
 
+[[example]]
+name = "date_parser_demo"
+path = "examples/date_parser_demo.rs"
+
 [profile.dev.package]
 insta.opt-level = 3
