@@ -93,11 +93,14 @@ impl FrontMatterParser {
 
 /// The document parser, parameterized over what happens when it encounters each event
 #[repr(transparent)]
+#[derive(Default)]
 pub struct DocumentParser {
-    pub options: Options,
+    pub options: DocumentParserOptions,
 }
 
-impl Default for DocumentParser {
+pub struct DocumentParserOptions(pub Options);
+
+impl Default for DocumentParserOptions {
     fn default() -> Self {
         let mut options = Options::empty();
         options.insert(Options::ENABLE_FOOTNOTES);
@@ -108,8 +111,7 @@ impl Default for DocumentParser {
         options.insert(Options::ENABLE_WIKILINKS);
         options.insert(Options::ENABLE_TABLES);
         options.insert(Options::ENABLE_GFM);
-        // options.remove(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
-        Self { options }
+        Self(options)
     }
 }
 
@@ -119,7 +121,7 @@ impl DocumentParser {
     }
 
     pub fn parse(&self, document: String) -> Result<Vec<Node>> {
-        let parser = Parser::new_ext(&document, self.options);
+        let parser = Parser::new_ext(&document, self.options.0);
 
         let mut parser_with_offset = ParserIterator {
             inner: parser.into_offset_iter().peekable(),

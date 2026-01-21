@@ -21,26 +21,12 @@ create table document (
 --  Link
 --- ==================================================================
 
-create table link (
-    node_id integer not null, -- the ast node for this link, tells us where in the document the link is
+create table document_link (
     from_id text not null,
     to_id text,
+    range_start integer not null,
+    range_stop integer not null,
     foreign key (from_id) references document(id) on delete cascade,
     foreign key (to_id) references document(id) on delete set null,
-    foreign key (node_id) references node(id) on delete cascade
 ) strict;
 
---- ==================================================================
---  Node
---- ==================================================================
-create table node (
-    id          integer primary key,
-    document_id text    not null,
-    parent_id   integer,
-    type        text    not null,
-    range_start integer not null,
-    range_end   integer not null,
-    data        blob, -- jsonb encoded data. Dependend on the node type
-    foreign key(document_id) references document(id) on delete cascade
-    foreign key(parent_id) references node(id) on delete cascade
-) strict;

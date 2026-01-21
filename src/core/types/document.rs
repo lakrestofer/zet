@@ -191,7 +191,7 @@ impl DbUpdate<Document, DocumentId> for Document {
                     hash        = ?4,
                     modified    = ?5,
                     created     = ?6,
-                    frontmatter = jsonb(?7)                    
+                    frontmatter = jsonb(?7)
                 "#
             );
             let mut query = tx.prepare(query_str)?;

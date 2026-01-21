@@ -4,6 +4,7 @@ use std::ops::Range;
 
 use pulldown_cmark::Parser;
 use zet::core::parser::DocumentParser;
+use zet::core::parser::DocumentParserOptions;
 use zet::core::parser::FrontMatterFormat;
 use zet::core::parser::FrontMatterParser;
 
@@ -21,8 +22,8 @@ pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> 
 
     let (_, content) = frontmatter_parser.parse(document);
 
-    let options = DocumentParser::default().options;
-    let parser = Parser::new_ext(&content, options).into_offset_iter();
+    let options = DocumentParserOptions::default();
+    let parser = Parser::new_ext(&content, options.0).into_offset_iter();
 
     let mut out = BufWriter::new(std::io::stdout());
 

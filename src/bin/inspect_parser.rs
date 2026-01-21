@@ -1,12 +1,12 @@
 use pulldown_cmark::Parser;
 use std::fs;
-use zet::core::parser::DocumentParser;
+use zet::core::parser::{DocumentParser, DocumentParserOptions};
 
 fn main() {
     let markdown_input = fs::read_to_string("CLAUDE.md").expect("Failed to read CLAUDE.md");
 
-    let parser = DocumentParser::default();
-    let parser = Parser::new_ext(&markdown_input, parser.options).into_offset_iter();
+    let options = DocumentParserOptions::default();
+    let parser = Parser::new_ext(&markdown_input, options.0).into_offset_iter();
 
     println!("=== Parsing CLAUDE.md ===\n");
     println!("{}\n", markdown_input);
