@@ -36,13 +36,13 @@ create table document_link (
 --  Heading
 --- ==================================================================
 
--- create table document_heading (
---     id integer primary key,
---     from_id text not null,
---     to_id text,
---     range_start integer not null,
---     range_stop integer not null,
---     foreign key (from_id) references document(id) on delete cascade,
---     foreign key (to_id) references document(id) on delete set null
--- ) strict;
+create table document_heading (
+    id integer primary key,
+    document_id text not null,
+    range_start integer not null,
+    range_stop integer not null,
+    content text not null,
+    metadata blob,
+    foreign key (document_id) references document(id) on delete cascade
+) strict;
 

@@ -48,14 +48,15 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     // parse and collect the data to be inserted into the db
     let mut documents = Vec::with_capacity(new.len() + updated.len());
     let mut links = Vec::new();
+    // let mut headings = Vec::new();
     process_new_documents(&config, new, &mut documents, &mut links)?;
     process_existing_documents(&config, updated, &mut documents, &mut links)?;
 
-    // and then we update the db
+    //  perform an upsert
     Document::update(&mut db, &documents)?;
 
-    // after inserting the new documents, we resolve the links and insert them
-    // to the
+    // links needs to be handled in a special. We want to resolve the link
+    // target to some actual document
     let resolved_links = resolve_links(&db, links)?;
     DocumentLink::insert(&mut db, &resolved_links)?;
 

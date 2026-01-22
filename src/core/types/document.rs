@@ -172,6 +172,7 @@ impl DbInsert<Document, DocumentId> for Document {
     }
 }
 
+// TODO maybe use explicit upsert trait instead here?
 impl DbUpdate<Document, DocumentId> for Document {
     fn update(db: &mut rusqlite::Connection, values: &[Document]) -> Result<Vec<DocumentId>> {
         log::debug!("upserting {} documents", values.len());
