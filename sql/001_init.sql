@@ -22,11 +22,27 @@ create table document (
 --- ==================================================================
 
 create table document_link (
+    id integer primary key,
     from_id text not null,
     to_id text,
     range_start integer not null,
     range_stop integer not null,
     foreign key (from_id) references document(id) on delete cascade,
-    foreign key (to_id) references document(id) on delete set null,
+    foreign key (to_id) references document(id) on delete set null
 ) strict;
+
+
+--- ==================================================================
+--  Heading
+--- ==================================================================
+
+-- create table document_heading (
+--     id integer primary key,
+--     from_id text not null,
+--     to_id text,
+--     range_start integer not null,
+--     range_stop integer not null,
+--     foreign key (from_id) references document(id) on delete cascade,
+--     foreign key (to_id) references document(id) on delete set null
+-- ) strict;
 

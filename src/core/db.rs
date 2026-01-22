@@ -54,16 +54,16 @@ pub trait DbList<T> {
     fn list(db: &Connection) -> Result<Vec<T>>;
 }
 pub trait DbGet<I, T> {
-    fn get(db: &mut Connection, id: I) -> Result<T>;
+    fn get(db: &mut Connection, id: &I) -> Result<T>;
 }
 pub trait DbInsert<In, Out> {
-    fn insert(db: &mut Connection, values: Vec<In>) -> Result<Vec<Out>>;
+    fn insert(db: &mut Connection, values: &[In]) -> Result<Vec<Out>>;
 }
 pub trait DbUpdate<In, Out> {
-    fn update(db: &mut Connection, values: Vec<In>) -> Result<Vec<Out>>;
+    fn update(db: &mut Connection, values: &[In]) -> Result<Vec<Out>>;
 }
 pub trait DbDelete<Id> {
-    fn delete(db: &mut Connection, ids: Vec<Id>) -> Result<()>;
+    fn delete(db: &mut Connection, ids: &[Id]) -> Result<()>;
 }
 
 #[cfg(test)]

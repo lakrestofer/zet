@@ -102,7 +102,7 @@ impl DbList<Document> for Document {
     }
 }
 impl DbGet<DocumentId, Document> for Document {
-    fn get(db: &mut rusqlite::Connection, id: DocumentId) -> Result<Document> {
+    fn get(db: &mut rusqlite::Connection, id: &DocumentId) -> Result<Document> {
         Ok(db
             .prepare(sql!(
                 r#"
@@ -134,9 +134,9 @@ impl DbGet<DocumentId, Document> for Document {
 }
 
 impl DbInsert<Document, DocumentId> for Document {
-    fn insert(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
-        log::debug!("inserting {} documents", value.len());
-        let ids = Vec::with_capacity(value.len());
+    fn insert(db: &mut rusqlite::Connection, values: &[Document]) -> Result<Vec<DocumentId>> {
+        log::debug!("inserting {} documents", values.len());
+        let ids = Vec::with_capacity(values.len());
         let tx = db.transaction()?;
         {
             let query_str = sql!(
@@ -156,8 +156,15 @@ impl DbInsert<Document, DocumentId> for Document {
             );
             let mut query = tx.prepare(query_str)?;
 
-            for d in value {
-                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
+            for d in values {
+                query.execute(params![
+                    &d.id,
+                    &d.path,
+                    d.hash,
+                    &d.modified,
+                    &d.created,
+                    &d.data
+                ])?;
             }
         }
         tx.commit()?;
@@ -166,9 +173,9 @@ impl DbInsert<Document, DocumentId> for Document {
 }
 
 impl DbUpdate<Document, DocumentId> for Document {
-    fn update(db: &mut rusqlite::Connection, value: Vec<Document>) -> Result<Vec<DocumentId>> {
-        log::debug!("upserting {} documents", value.len());
-        let ids = Vec::with_capacity(value.len());
+    fn update(db: &mut rusqlite::Connection, values: &[Document]) -> Result<Vec<DocumentId>> {
+        log::debug!("upserting {} documents", values.len());
+        let ids = Vec::with_capacity(values.len());
         let tx = db.transaction()?;
         {
             let query_str = sql!(
@@ -195,8 +202,15 @@ impl DbUpdate<Document, DocumentId> for Document {
                 "#
             );
             let mut query = tx.prepare(query_str)?;
-            for d in value {
-                query.execute(params![d.id, d.path, d.hash, d.modified, d.created, d.data])?;
+            for d in values {
+                query.execute(params![
+                    &d.id,
+                    &d.path,
+                    d.hash,
+                    &d.modified,
+                    &d.created,
+                    &d.data
+                ])?;
             }
         }
         tx.commit()?;
@@ -205,7 +219,7 @@ impl DbUpdate<Document, DocumentId> for Document {
 }
 
 impl DbDelete<DocumentId> for Document {
-    fn delete(db: &mut rusqlite::Connection, ids: Vec<DocumentId>) -> Result<()> {
+    fn delete(db: &mut rusqlite::Connection, ids: &[DocumentId]) -> Result<()> {
         let tx = db.transaction()?;
         {
             let query_str = sql!(r#"delete from document where id = ?1"#);
