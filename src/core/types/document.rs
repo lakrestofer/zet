@@ -108,6 +108,7 @@ impl DbGet<DocumentId, Document> for Document {
                 r#"
             select
                 id,
+                title,
                 path,
                 hash,
                 modified,
@@ -136,7 +137,7 @@ impl DbGet<DocumentId, Document> for Document {
 impl DbInsert<Document, DocumentId> for Document {
     fn insert(db: &mut rusqlite::Connection, values: &[Document]) -> Result<Vec<DocumentId>> {
         log::debug!("inserting {} documents", values.len());
-        let ids = Vec::with_capacity(values.len());
+        let mut ids = Vec::with_capacity(values.len());
         let tx = db.transaction()?;
         {
             let query_str = sql!(
@@ -159,12 +160,14 @@ impl DbInsert<Document, DocumentId> for Document {
             for d in values {
                 query.execute(params![
                     &d.id,
+                    &d.title,
                     &d.path,
                     d.hash,
                     &d.modified,
                     &d.created,
                     &d.data
                 ])?;
+                ids.push(d.id.clone());
             }
         }
         tx.commit()?;
@@ -176,7 +179,7 @@ impl DbInsert<Document, DocumentId> for Document {
 impl DbUpdate<Document, DocumentId> for Document {
     fn update(db: &mut rusqlite::Connection, values: &[Document]) -> Result<Vec<DocumentId>> {
         log::debug!("upserting {} documents", values.len());
-        let ids = Vec::with_capacity(values.len());
+        let mut ids = Vec::with_capacity(values.len());
         let tx = db.transaction()?;
         {
             let query_str = sql!(
@@ -206,12 +209,14 @@ impl DbUpdate<Document, DocumentId> for Document {
             for d in values {
                 query.execute(params![
                     &d.id,
+                    &d.title,
                     &d.path,
                     d.hash,
                     &d.modified,
                     &d.created,
                     &d.data
                 ])?;
+                ids.push(d.id.clone());
             }
         }
         tx.commit()?;

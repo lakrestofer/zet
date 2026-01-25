@@ -106,21 +106,21 @@ impl From<DocumentId> for DocumentLinkTarget {
 
 impl ToSql for DocumentLinkSource {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        todo!()
+        self.0.to_sql()
     }
 }
 impl FromSql for DocumentLinkSource {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        todo!()
+        Ok(DocumentLinkSource(DocumentId::column_result(value)?))
     }
 }
 impl ToSql for DocumentLinkTarget {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        todo!()
+        self.0.to_sql()
     }
 }
 impl FromSql for DocumentLinkTarget {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        todo!()
+        Ok(DocumentLinkTarget(DocumentId::column_result(value)?))
     }
 }

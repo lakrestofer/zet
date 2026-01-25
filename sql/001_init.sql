@@ -51,7 +51,7 @@ create table document_heading (
 --  Tasks
 --- ==================================================================
 
-create table document_tasks (
+create table document_task (
     id integer primary key,
     document_id text not null,
     checked integer not null, -- rusqlite converts booleans to integers
