@@ -5,9 +5,12 @@ use sql_minifier::macros::minify_sql as sql;
 use std::ops::Range;
 use zet::core::db::{DbDelete, DbInsert, DbUpdate};
 use zet::core::parser::DocumentParserOptions;
-use zet::core::parser::ast_nodes::Node;
+use zet::core::parser::ast_nodes::{Node, TaskListMarker};
 use zet::core::path_to_id;
-use zet::core::types::link::DocumentLink;
+use zet::core::types::heading::NewDocumentHeading;
+use zet::core::types::link::{DocumentLink, DocumentLinkSource, NewDocumentLink};
+use zet::core::types::task::{DocumentTask, NewDocumentTask};
+use zet::core::types::{RangeEnd, RangeStart};
 use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
 use zet::preamble::*;
 use zet::{
@@ -39,31 +42,47 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
         removed.len()
     );
 
-    // delete stale data
-    let updated_ids: Vec<_> = updated.iter().map(|(id, _, _, _, _)| id.clone()).collect();
-
+    // Delete removed documents. Associated data (links, headings) will be
+    // removed as well by trigger
     Document::delete(&mut db, &removed)?;
-    DocumentLink::delete(&mut db, &updated_ids)?;
 
     // parse and collect the data to be inserted into the db
     let mut documents = Vec::with_capacity(new.len() + updated.len());
     let mut links = Vec::new();
+    let mut headings = Vec::new();
+    let mut tasks = Vec::new();
     // let mut headings = Vec::new();
-    process_new_documents(&config, new, &mut documents, &mut links)?;
-    process_existing_documents(&config, updated, &mut documents, &mut links)?;
+    process_new_documents(
+        &config,
+        new,
+        &mut documents,
+        &mut links,
+        &mut headings,
+        &mut tasks,
+    )?;
+    process_existing_documents(
+        &config,
+        updated,
+        &mut documents,
+        &mut links,
+        &mut headings,
+        &mut tasks,
+    )?;
 
-    //  perform an upsert
+    // Perform an upsert on the documents. This will clear any associated data
+    // as well
     Document::update(&mut db, &documents)?;
 
     // links needs to be handled in a special. We want to resolve the link
     // target to some actual document
     let resolved_links = resolve_links(&db, links)?;
     DocumentLink::insert(&mut db, &resolved_links)?;
+    DocumentTask::insert(&mut db, &tasks)?;
 
     Ok(())
 }
 
-fn resolve_links(db: &DB, unresolved_links: Vec<UnresolvedLink>) -> Result<Vec<DocumentLink>> {
+fn resolve_links(db: &DB, unresolved_links: Vec<UnresolvedLink>) -> Result<Vec<NewDocumentLink>> {
     let mut links = Vec::new();
 
     // linear search for now!
@@ -78,9 +97,9 @@ fn resolve_links(db: &DB, unresolved_links: Vec<UnresolvedLink>) -> Result<Vec<D
             .iter()
             .find(|id| link.to.ends_with(&id.0))
             .map(|v| v.to_owned());
-        links.push(DocumentLink {
-            from: link.from,
-            to: res,
+        links.push(NewDocumentLink {
+            from: link.from.into(),
+            to: res.map(From::from),
             range_start: link.range_start,
             range_end: link.range_end,
         })
@@ -94,6 +113,8 @@ fn process_new_documents(
     new: Vec<DocumentPath>,
     documents: &mut Vec<Document>,
     links: &mut Vec<UnresolvedLink>,
+    headings: &mut Vec<NewDocumentHeading>,
+    tasks: &mut Vec<NewDocumentTask>,
 ) -> Result<()> {
     for DocumentPath(path) in new {
         let id = path_to_id(&config.root, &path);
@@ -122,6 +143,8 @@ fn process_new_documents(
 
         // links
         extract_links_from_ast(links, &id, &document);
+        extract_headings_from_ast(headings, &id, &document);
+        extract_tasks_from_ast(tasks, &id, &document);
 
         // documents
         documents.push(Document {
@@ -150,6 +173,8 @@ fn process_existing_documents(
 
     documents: &mut Vec<Document>,
     links: &mut Vec<UnresolvedLink>,
+    headings: &mut Vec<NewDocumentHeading>,
+    tasks: &mut Vec<NewDocumentTask>,
 ) -> Result<()> {
     for (id, path, modified, created, hash) in updated {
         let content = std::fs::read_to_string(&path.0)?;
@@ -169,6 +194,8 @@ fn process_existing_documents(
 
         // links
         extract_links_from_ast(links, &id, &document);
+        extract_headings_from_ast(headings, &id, &document);
+        extract_tasks_from_ast(tasks, &id, &document);
 
         documents.push(Document {
             id,
@@ -185,9 +212,9 @@ fn process_existing_documents(
 }
 
 struct UnresolvedLink {
-    range_start: usize,
-    range_end: usize,
-    from: DocumentId,
+    range_start: RangeStart,
+    range_end: RangeEnd,
+    from: DocumentLinkSource,
     /// unresolved link target, might or might not map to a document_id
     to: String,
 }
@@ -201,13 +228,13 @@ fn extract_links_from_ast(
         match node {
             // links
             Node::WikiLink { target, range, .. } => links.push(UnresolvedLink {
-                from: document_id.clone(),
+                from: document_id.clone().into(),
                 to: target.clone(),
                 range_start: range.start,
                 range_end: range.end,
             }),
             Node::InlineLink { target, range, .. } => links.push(UnresolvedLink {
-                from: document_id.clone(),
+                from: document_id.clone().into(),
                 to: target.clone(),
                 range_start: range.start,
                 range_end: range.end,
@@ -226,6 +253,87 @@ fn extract_links_from_ast(
                 extract_links_from_ast(links, document_id, children)
             }
             // ignore the rest
+            _ => {}
+        }
+    }
+}
+
+fn extract_headings_from_ast(
+    headings: &mut Vec<NewDocumentHeading>,
+    document_id: &DocumentId,
+    nodes: &Vec<Node>,
+) {
+    for node in nodes {
+        match node {
+            Node::Heading {
+                range,
+                id,
+                classes,
+                attributes,
+                level,
+                content,
+                children,
+            } => {
+                let metadata = json!({
+                    "id": id,
+                    "classes": classes,
+                    "attributes": attributes
+                });
+                let range_start = range.start;
+                let range_end = range.end;
+                headings.push(NewDocumentHeading {
+                    document_id: document_id.clone(),
+                    content: content.to_owned(),
+                    level: *level,
+                    metadata,
+                    range_start,
+                    range_end,
+                });
+                extract_headings_from_ast(headings, document_id, children);
+            }
+            // no other node should contain heading nodes
+            _ => {}
+        }
+    }
+}
+
+// TODO this should probably be extended to capture that tasks typically have subtasks
+fn extract_tasks_from_ast(
+    tasks: &mut Vec<NewDocumentTask>,
+    document_id: &DocumentId,
+    nodes: &Vec<Node>,
+) {
+    for node in nodes {
+        match node {
+            Node::Heading { children, .. } => extract_tasks_from_ast(tasks, document_id, children),
+            Node::List { children, .. } => extract_tasks_from_ast(tasks, document_id, children),
+            Node::Item {
+                range,
+                task_list_marker,
+                children: _,
+                sub_lists,
+            } => {
+                match task_list_marker {
+                    TaskListMarker::UnChecked | TaskListMarker::Checked => {
+                        let checked = match task_list_marker {
+                            TaskListMarker::UnChecked => false,
+                            TaskListMarker::Checked => true,
+                            _ => unreachable!(),
+                        };
+                        let content = String::new();
+
+                        tasks.push(NewDocumentTask {
+                            document_id: document_id.to_owned(),
+                            checked,
+                            content,
+                            range_start: range.start,
+                            range_end: range.end,
+                        });
+                    }
+                    TaskListMarker::NoCheckmark => {}
+                }
+                extract_tasks_from_ast(tasks, document_id, sub_lists);
+            }
             _ => {}
         }
     }

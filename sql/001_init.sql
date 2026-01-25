@@ -26,7 +26,7 @@ create table document_link (
     from_id text not null,
     to_id text,
     range_start integer not null,
-    range_stop integer not null,
+    range_end integer not null,
     foreign key (from_id) references document(id) on delete cascade,
     foreign key (to_id) references document(id) on delete set null
 ) strict;
@@ -39,10 +39,46 @@ create table document_link (
 create table document_heading (
     id integer primary key,
     document_id text not null,
-    range_start integer not null,
-    range_stop integer not null,
     content text not null,
-    metadata blob,
+    level integer not null,
+    metadata blob not null,
+    range_start integer not null,
+    range_end integer not null,
     foreign key (document_id) references document(id) on delete cascade
 ) strict;
+
+--- ==================================================================
+--  Tasks
+--- ==================================================================
+
+create table document_tasks (
+    id integer primary key,
+    document_id text not null,
+    checked integer not null, -- rusqlite converts booleans to integers
+    content text not null,
+    range_start integer not null,
+    range_end integer not null,
+    foreign key (document_id) references document(id) on delete cascade
+) strict;
+
+
+--- ==================================================================
+--  Triggers - Clear linked data on document hash update
+--- ==================================================================
+
+-- Clear all links from a document when its hash changes
+create trigger clear_links_on_hash_update
+after update of hash on document
+for each row
+begin
+    delete from document_link where from_id = NEW.id;
+end;
+
+-- Clear all headings from a document when its hash changes
+create trigger clear_headings_on_hash_update
+after update of hash on document
+for each row
+begin
+    delete from document_heading where document_id = NEW.id;
+end;
 
