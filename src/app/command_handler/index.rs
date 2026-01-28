@@ -324,6 +324,7 @@ fn extract_tasks_from_ast(
 
                         tasks.push(NewDocumentTask {
                             document_id: document_id.to_owned(),
+                            parent_id: None,
                             checked,
                             content,
                             range_start: range.start,

@@ -11,6 +11,7 @@ use crate::core::{
 pub struct DocumentTask {
     pub id: i64,
     pub document_id: DocumentId,
+    pub parent_id: Option<i64>,
     pub checked: bool,
     pub content: String,
     pub range_start: RangeStart,
@@ -20,6 +21,7 @@ pub struct DocumentTask {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewDocumentTask {
     pub document_id: DocumentId,
+    pub parent_id: Option<i64>,
     pub checked: bool,
     pub content: String,
     pub range_start: RangeStart,

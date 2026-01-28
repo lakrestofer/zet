@@ -262,6 +262,7 @@ mod crud_tests {
 
         let task1 = NewDocumentTask {
             document_id: DocumentId("doc-with-tasks".to_string()),
+            parent_id: None,
             checked: false,
             content: "Unchecked task".to_string(),
             range_start: 0,
@@ -270,6 +271,7 @@ mod crud_tests {
 
         let task2 = NewDocumentTask {
             document_id: DocumentId("doc-with-tasks".to_string()),
+            parent_id: None,
             checked: true,
             content: "Checked task".to_string(),
             range_start: 15,

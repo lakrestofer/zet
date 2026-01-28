@@ -37,5 +37,5 @@ pub fn handle_command(
 
     format: Option<String>,
 ) -> Result<()> {
-    todo!()
+    Ok(())
 }
