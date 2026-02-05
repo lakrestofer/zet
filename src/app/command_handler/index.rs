@@ -11,7 +11,7 @@ use zet::core::types::heading::NewDocumentHeading;
 use zet::core::types::link::{DocumentLink, DocumentLinkSource, NewDocumentLink};
 use zet::core::types::task::{DocumentTask, NewDocumentTask};
 use zet::core::types::{RangeEnd, RangeStart};
-use zet::core::{extract_title_from_ast, extract_title_from_frontmatter};
+use zet::core::{extract_id_from_frontmatter, extract_title_from_ast, extract_title_from_frontmatter};
 use zet::preamble::*;
 use zet::{
     config::Config,
@@ -118,8 +118,6 @@ fn process_new_documents(
     tasks: &mut Vec<NewDocumentTask>,
 ) -> Result<()> {
     for DocumentPath(path) in new {
-        let id = path_to_id(&config.root, &path);
-
         // metadata
         let metadata = std::fs::metadata(&path)?;
         let modified = ModifiedTimestamp(metadata.modified().map(TryFrom::try_from)??);
@@ -136,6 +134,10 @@ fn process_new_documents(
             content,
         )?;
         let frontmatter = frontmatter.unwrap_or(serde_json::Value::Null);
+
+        // id - check frontmatter first, then fall back to path-based generation
+        let id = extract_id_from_frontmatter(&frontmatter)
+            .unwrap_or_else(|| path_to_id(&config.root, &path));
 
         // title
         let title = extract_title_from_frontmatter(&frontmatter)

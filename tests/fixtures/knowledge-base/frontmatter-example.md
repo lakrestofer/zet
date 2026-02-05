@@ -1,10 +1,10 @@
 ---
-title = "This File Tests Frontmatter Metadata"
-tags = ["testing", "frontmatter", "metadata", "toml"]
-created = 2024-01-15T10:30:00Z
-modified = 2024-01-20T15:45:00Z
-author = "Test Suite"
-status = "draft"
+title: "This File Tests YAML Frontmatter Metadata"
+tags: ["testing", "frontmatter", "metadata", "yaml"]
+created: 2024-01-15T10:30:00Z
+modified: 2024-01-20T15:45:00Z
+author: "Test Suite"
+status: "draft"
 ---
 
 # This File Contains TOML Frontmatter

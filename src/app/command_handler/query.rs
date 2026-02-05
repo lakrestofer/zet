@@ -87,9 +87,7 @@ fn render_query_output(
                 serde_json::to_writer(writer, &documents)?;
             }
         }
-        OutputFormat::Template => {
-            todo!()
-        }
+        OutputFormat::Template => {}
     }
     Ok(())
 }

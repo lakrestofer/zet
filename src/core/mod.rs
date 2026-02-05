@@ -251,6 +251,7 @@ pub fn path_to_id(root: &Path, path: &Path) -> DocumentId {
 ////////////////////////////////////////////////////////////
 
 pub const TITLE_KEY: &str = "title";
+pub const ID_KEY: &str = "id";
 
 pub fn extract_title_from_frontmatter(data: &serde_json::Value) -> Option<String> {
     let res = data.get("title")?;
@@ -260,6 +261,69 @@ pub fn extract_title_from_frontmatter(data: &serde_json::Value) -> Option<String
     }
 
     None
+}
+
+pub fn extract_id_from_frontmatter(data: &serde_json::Value) -> Option<DocumentId> {
+    let res = data.get("id")?;
+
+    if let serde_json::Value::String(s) = res {
+        return Some(DocumentId(s.to_owned()));
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_extract_id_from_frontmatter() {
+        let data = json!({
+            "id": "my-custom-id",
+            "title": "My Title"
+        });
+
+        let id = extract_id_from_frontmatter(&data);
+        assert_eq!(id, Some(DocumentId("my-custom-id".to_string())));
+    }
+
+    #[test]
+    fn test_extract_id_from_frontmatter_missing() {
+        let data = json!({
+            "title": "My Title"
+        });
+
+        let id = extract_id_from_frontmatter(&data);
+        assert_eq!(id, None);
+    }
+
+    #[test]
+    fn test_frontmatter_parsing_from_file() {
+        use crate::core::parser::{FrontMatterFormat, FrontMatterParser};
+
+        let content = r#"---
+title = "Custom Title"
+id = "my-custom-id"
+---
+
+# Heading
+"#;
+
+        let parser = FrontMatterParser::new(FrontMatterFormat::Toml);
+        let (frontmatter, _) = parser.parse(content.to_string());
+
+        eprintln!("Parsed frontmatter: {:?}", frontmatter);
+
+        assert!(frontmatter.is_some());
+        let fm = frontmatter.unwrap();
+
+        let id = extract_id_from_frontmatter(&fm);
+        eprintln!("Extracted ID: {:?}", id);
+
+        assert_eq!(id, Some(DocumentId("my-custom-id".to_string())));
+    }
 }
 
 /// TODO write documentation for how we retrieve the title

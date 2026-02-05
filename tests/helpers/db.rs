@@ -118,3 +118,38 @@ pub fn get_all_document_ids(db: &DB) -> Vec<DocumentId> {
         .map(|r| DocumentId(r.expect("Failed to extract document ID")))
         .collect()
 }
+
+/// Gets a document by ID from the database
+pub fn get_document_by_id(db: &DB, id: &str) -> Option<(String, String)> {
+    let mut stmt = db
+        .prepare("SELECT id, title FROM document WHERE id = ?")
+        .expect("Failed to prepare document query");
+
+    stmt.query_row([id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })
+    .ok()
+}
+
+/// Gets all document IDs and checks if they have a custom ID in frontmatter
+pub fn get_document_ids_with_frontmatter_info(db: &DB) -> Vec<(DocumentId, bool)> {
+    let mut stmt = db
+        .prepare("SELECT id, json(frontmatter) FROM document ORDER BY id")
+        .expect("Failed to prepare document query");
+
+    stmt.query_map([], |row| {
+        let id = row.get::<_, String>(0)?;
+        let data = row.get::<_, Option<serde_json::Value>>(1)?;
+
+        // Check if the JSON has an 'id' field
+        let has_custom_id = data
+            .as_ref()
+            .and_then(|v| v.get("id"))
+            .is_some();
+
+        Ok((DocumentId(id), has_custom_id))
+    })
+    .expect("Failed to query documents")
+    .map(|r| r.expect("Failed to extract document info"))
+    .collect()
+}
