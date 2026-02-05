@@ -66,6 +66,5 @@ fn test_index_new_documents() {
     let db = open_test_db(&workspace);
     let doc_count = count_documents(&db);
 
-    // We have 1 markdown files in the fixture
-    assert_eq!(doc_count, 1, "Should have indexed 9 documents");
+    assert_eq!(doc_count, 6);
 }
