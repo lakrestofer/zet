@@ -106,3 +106,15 @@ pub fn count_unchecked_tasks(db: &DB) -> usize {
         .query_row([], |row| row.get::<_, i64>(0))
         .expect("Failed to count unchecked tasks") as usize
 }
+
+/// Gets all document IDs from the database
+pub fn get_all_document_ids(db: &DB) -> Vec<DocumentId> {
+    let mut stmt = db
+        .prepare("SELECT id FROM document ORDER BY id")
+        .expect("Failed to prepare document IDs query");
+
+    stmt.query_map([], |row| row.get::<_, String>(0))
+        .expect("Failed to query document IDs")
+        .map(|r| DocumentId(r.expect("Failed to extract document ID")))
+        .collect()
+}

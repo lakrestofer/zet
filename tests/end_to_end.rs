@@ -68,3 +68,33 @@ fn test_index_new_documents() {
 
     assert_eq!(doc_count, 6);
 }
+
+#[test]
+fn test_document_ids_match_disk_slugification() {
+    let (temp, workspace) = setup_temp_workspace();
+    copy_fixture_to_temp("knowledge-base", &temp).unwrap();
+
+    // Initialize and index the workspace
+    run_cli_cmd(&["init"], &workspace).assert().success();
+    run_cli_cmd(&["index"], &workspace).assert().success();
+
+    // Get document IDs from database
+    let db = open_test_db(&workspace);
+    let mut db_ids = get_all_document_ids(&db);
+    db_ids.sort();
+
+    // Get document IDs by slugifying paths from disk
+    let disk_paths = zet::core::workspace_paths(&workspace)
+        .expect("Failed to get workspace paths");
+    let mut disk_ids: Vec<_> = disk_paths
+        .iter()
+        .map(|path| zet::core::path_to_id(&workspace, path))
+        .collect();
+    disk_ids.sort();
+
+    // The two lists should be identical
+    assert_eq!(
+        db_ids, disk_ids,
+        "Document IDs in database should match IDs generated from disk paths"
+    );
+}
