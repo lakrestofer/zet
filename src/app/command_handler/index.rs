@@ -43,6 +43,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     );
 
     // Delete removed documents. Associated data (links, headings) will be
+    //
     // removed as well by trigger
     Document::delete(&mut db, &removed)?;
 

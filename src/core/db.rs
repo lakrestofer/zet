@@ -53,6 +53,9 @@ impl DerefMut for DB {
 pub trait DbList<T> {
     fn list(db: &Connection) -> Result<Vec<T>>;
 }
+pub trait DbQuery<T, Q> {
+    fn list(db: &Connection, query: Q) -> Result<Vec<T>>;
+}
 pub trait DbGet<I, T> {
     fn get(db: &mut Connection, id: &I) -> Result<T>;
 }

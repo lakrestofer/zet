@@ -18,6 +18,7 @@ pub enum Command {
     /// Reindex the collection. Parsing any new/updated files and updating the cache.
     Index {
         #[arg(long, default_value_t = false)]
+        /// clear the cache and reindex the entire collection
         force: bool,
     },
     Init {
@@ -29,9 +30,9 @@ pub enum Command {
         ////////////////////////////////////////////////////////////
         // tags
         ////////////////////////////////////////////////////////////
-        #[arg(long, value_delimiter = ',')]
+        #[arg(long = "tag", value_delimiter = ',')]
         /// list notes that includes `tag`
-        tag: Vec<String>,
+        tags: Vec<String>,
         #[arg(long)]
         /// list notes that have no `tag`
         tagless: bool,
@@ -39,9 +40,9 @@ pub enum Command {
         ////////////////////////////////////////////////////////////
         // explicit sets of ids
         ////////////////////////////////////////////////////////////
-        #[arg(long, value_delimiter = ',')]
+        #[arg(long = "exclude", value_delimiter = ',')]
         /// list notes in the set described by `exclude`
-        exclude: Vec<String>,
+        exclude_list: Vec<String>,
         #[arg(long, value_delimiter = ',')]
         exclude_by_path: Vec<String>,
 
@@ -78,7 +79,7 @@ pub enum Command {
         // patterns
         ////////////////////////////////////////////////////////////
         #[arg(long = "match", value_delimiter = ',')]
-        match_pattern: Vec<String>,
+        match_patterns: Vec<String>,
 
         #[arg(long, default_value_t=MatchStrategy::FTS)]
         match_strategy: MatchStrategy,
@@ -86,14 +87,21 @@ pub enum Command {
         ////////////////////////////////////////////////////////////
         // output options
         ////////////////////////////////////////////////////////////
-        #[arg(long, value_delimiter = ',', value_parser=parse_sort_option)]
-        /// limit the number of results returned
-        sort: Vec<SortConfig>,
+        #[arg(long="sort", value_delimiter = ',', value_parser=parse_sort_option)]
+        /// sort the result by some configuration
+        sort_configs: Vec<SortConfig>,
         #[arg(long)]
         /// limit the number of results returned
-        limit: Option<u32>,
+        limit: Option<usize>,
         #[arg(long)]
-        output_format: Option<OutputFormat>,
+        /// how each document should be formatted
+        output_format: OutputFormat,
+        #[arg(long)]
+        /// separator between each formatted document
+        delimiter: Option<String>,
+        #[arg(long)]
+        /// whether json output should be pretty printed or not
+        pretty: bool,
         #[arg(long)]
         template: Option<String>,
     },
@@ -106,8 +114,8 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub struct SortConfig {
-    by: SortByOption,
-    order: SortOrder,
+    pub by: SortByOption,
+    pub order: SortOrder,
 }
 
 #[derive(Debug, Clone)]
@@ -120,10 +128,11 @@ pub enum SortOrder {
 pub enum SortByOption {
     Modified,
     Created,
+    Id,
     Path,
     Title,
-    Random,
-    WordCount,
+    // Random,
+    // WordCount,
 }
 
 fn parse_sort_option<'src>(input: &'src str) -> zet::result::Result<SortConfig> {
@@ -134,10 +143,11 @@ fn parse_sort_option<'src>(input: &'src str) -> zet::result::Result<SortConfig> 
         just("created").to(SortByOption::Created),
         just("modified").to(SortByOption::Modified),
         just("created").to(SortByOption::Created),
+        just("id").to(SortByOption::Id),
         just("path").to(SortByOption::Path),
         just("title").to(SortByOption::Title),
-        just("random").to(SortByOption::Random),
-        just("wordcount").to(SortByOption::WordCount),
+        // just("random").to(SortByOption::Random),
+        // just("wordcount").to(SortByOption::WordCount),
     ))
     .then(
         choice((
@@ -154,15 +164,16 @@ fn parse_sort_option<'src>(input: &'src str) -> zet::result::Result<SortConfig> 
 
     let (by, order) = match res {
         (by, Some(ord)) => (by, ord),
-        (SortByOption::Random, _) => (res.0, SortOrder::Ascending),
+        // (SortByOption::Random, _) => (res.0, SortOrder::Ascending),
         (by, None) => {
             let ord = match by {
                 SortByOption::Modified => SortOrder::Descending,
                 SortByOption::Created => SortOrder::Descending,
+                SortByOption::Id => SortOrder::Ascending,
                 SortByOption::Path => SortOrder::Ascending,
                 SortByOption::Title => SortOrder::Ascending,
-                SortByOption::WordCount => SortOrder::Ascending,
-                SortByOption::Random => unreachable!(),
+                // SortByOption::WordCount => SortOrder::Ascending,
+                // SortByOption::Random => unreachable!(),
             };
             (by, ord)
         }

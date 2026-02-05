@@ -46,9 +46,6 @@
             modules = [
               {
 
-                scripts.claude.exec = ''
-                  bunx @anthropic-ai/claude-code "$@";
-                '';
                 scripts.parse-md-file.exec = ''
                   cargo r --bin print_events "$@"
                 '';

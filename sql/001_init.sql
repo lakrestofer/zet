@@ -84,118 +84,14 @@ create table document_task (
 --- ==================================================================
 
 -- Clear all links from a document when its hash changes
-create trigger clear_links_on_hash_update
+create trigger clear_document_data_on_hash_update
 after update of hash on document
 for each row
 begin
     delete from document_link where from_id = NEW.id;
-end;
-
--- Clear all headings from a document when its hash changes
-create trigger clear_headings_on_hash_update
-after update of hash on document
-for each row
-begin
     delete from document_heading where document_id = NEW.id;
-end;
-
-create trigger clear_tasks_on_hash_update
-after update of hash on document
-for each row
-begin
     delete from document_task where document_id = NEW.id;
-end;
-
--- Clear all tags from a document when its hash changes
-create trigger clear_tags_on_hash_update
-after update of hash on document
-for each row
-begin
     delete from document_tag_map where document_id = NEW.id;
-end;
-
---- ==================================================================
---  Triggers - Populate tags from frontmatter
---- ==================================================================
-
--- Populate tags after document insert
-create trigger populate_tags_after_insert
-after insert on document
-for each row
-when NEW.frontmatter is not null
-begin
-    -- Extract and insert unique tags from 'tag' and 'tags' frontmatter fields
-    insert or ignore into tag (tag)
-    select distinct tag_name from (
-        -- Handle 'tag' field as array
-        select value as tag_name from json_each(NEW.frontmatter, '$.tag')
-        union
-        -- Handle 'tag' field as string
-        select json_extract(NEW.frontmatter, '$.tag') as tag_name
-        where json_type(NEW.frontmatter, '$.tag') = 'text'
-        union
-        -- Handle 'tags' field as array
-        select value as tag_name from json_each(NEW.frontmatter, '$.tags')
-        union
-        -- Handle 'tags' field as string
-        select json_extract(NEW.frontmatter, '$.tags') as tag_name
-        where json_type(NEW.frontmatter, '$.tags') = 'text'
-    ) where tag_name is not null;
-
-    -- Create document-tag mappings
-    insert into document_tag_map (document_id, tag_id)
-    select distinct NEW.id, t.id
-    from (
-        select value as tag_name from json_each(NEW.frontmatter, '$.tag')
-        union
-        select json_extract(NEW.frontmatter, '$.tag') as tag_name
-        where json_type(NEW.frontmatter, '$.tag') = 'text'
-        union
-        select value as tag_name from json_each(NEW.frontmatter, '$.tags')
-        union
-        select json_extract(NEW.frontmatter, '$.tags') as tag_name
-        where json_type(NEW.frontmatter, '$.tags') = 'text'
-    ) et
-    join tag t on t.tag = et.tag_name
-    where et.tag_name is not null;
-end;
-
--- Populate tags after document hash update
-create trigger populate_tags_after_hash_update
-after update of hash on document
-for each row
-when NEW.frontmatter is not null
-begin
-    -- Extract and insert unique tags from 'tag' and 'tags' frontmatter fields
-    insert or ignore into tag (tag)
-    select distinct tag_name from (
-        select value as tag_name from json_each(NEW.frontmatter, '$.tag')
-        union
-        select json_extract(NEW.frontmatter, '$.tag') as tag_name
-        where json_type(NEW.frontmatter, '$.tag') = 'text'
-        union
-        select value as tag_name from json_each(NEW.frontmatter, '$.tags')
-        union
-        select json_extract(NEW.frontmatter, '$.tags') as tag_name
-        where json_type(NEW.frontmatter, '$.tags') = 'text'
-    ) where tag_name is not null;
-
-    -- Create document-tag mappings
-    insert into document_tag_map (document_id, tag_id)
-    select distinct NEW.id, t.id
-    from (
-        select value as tag_name from json_each(NEW.frontmatter, '$.tag')
-        union
-        select json_extract(NEW.frontmatter, '$.tag') as tag_name
-        where json_type(NEW.frontmatter, '$.tag') = 'text'
-        union
-        select value as tag_name from json_each(NEW.frontmatter, '$.tags')
-        union
-        select json_extract(NEW.frontmatter, '$.tags') as tag_name
-        where json_type(NEW.frontmatter, '$.tags') = 'text'
-    ) et
-    join tag t on t.tag = et.tag_name
-    where et.tag_name is not null;
 end;
 
 --- ==================================================================

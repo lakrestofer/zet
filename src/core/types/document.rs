@@ -15,18 +15,16 @@ use sql_minifier::macros::minify_sql as sql;
 // new type pattern
 ////////////////////////////////////////////////////////////
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[repr(transparent)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentPath(pub PathBuf);
 
-#[repr(transparent)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentId(pub String);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ModifiedTimestamp(pub Timestamp);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CreatedTimestamp(pub Timestamp);
 
 ////////////////////////////////////////////////////////////

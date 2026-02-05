@@ -23,25 +23,56 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             };
             index::handle_command(config, force)?
         }
-        Command::Query { .. } => {
+        Command::Query {
+            tags: tag,
+            tagless,
+            exclude_list: exclude,
+            exclude_by_path,
+            created,
+            modified,
+            created_before,
+            created_after,
+            modified_before,
+            modified_after,
+            links_to,
+            links_from,
+            match_patterns: match_pattern,
+            match_strategy,
+            sort_configs: sort_config,
+            limit,
+            output_format,
+            delimiter,
+            pretty,
+            template,
+        } => {
             let config = zet::config::Config {
                 root: zet::core::resolve_root(root)?,
                 front_matter_format: FrontMatterFormat::Yaml,
             };
 
-            // query::handle_command(
-            //     tag,
-            //     exclude,
-            //     created_before,
-            //     created_after,
-            //     modified_before,
-            //     modified_after,
-            //     link_to,
-            //     link_from,
-            //     match_pattern,
-            //     match_strategy,
-            //     format,
-            // );
+            query::handle_command(
+                config,
+                tag,
+                tagless,
+                exclude,
+                exclude_by_path,
+                created,
+                modified,
+                created_before,
+                created_after,
+                modified_before,
+                modified_after,
+                links_to,
+                links_from,
+                match_pattern,
+                match_strategy,
+                sort_config,
+                limit,
+                output_format,
+                delimiter,
+                pretty,
+                template,
+            )?;
         }
         Command::Lsp => todo!(),
         Command::Format => todo!(),
