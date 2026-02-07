@@ -87,7 +87,7 @@ pub enum Command {
         #[arg(long = "match", value_delimiter = ',')]
         match_patterns: Vec<String>,
 
-        #[arg(long, default_value_t=MatchStrategy::FTS)]
+        #[arg(long, default_value = "fts")]
         match_strategy: MatchStrategy,
 
         ////////////////////////////////////////////////////////////

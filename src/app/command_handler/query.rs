@@ -1,25 +1,18 @@
-use std::fmt::Debug;
-use std::io::BufWriter;
 use std::io::Write;
-use std::ops::Range;
 
 use jiff::Timestamp;
-use pulldown_cmark::Parser;
 use tera::Context;
 use tera::Tera;
 use zet::core::db::DB;
-use zet::core::db::DbList;
-use zet::core::parser::DocumentParser;
-use zet::core::parser::FrontMatterFormat;
-use zet::core::parser::FrontMatterParser;
-use zet::core::types::document::Document;
+use zet::core::query::DocumentQuery;
+use zet::core::query::SortByOption as QuerySortByOption;
+use zet::core::query::SortOrder as QuerySortOrder;
 
 use crate::app::commands::MatchStrategy;
 use crate::app::commands::OutputFormat;
 use crate::app::commands::SortByOption;
 use crate::app::commands::SortConfig;
 use crate::app::commands::SortOrder;
-use crate::app::preamble::*;
 use zet::preamble::*;
 
 pub fn handle_command(
@@ -41,8 +34,8 @@ pub fn handle_command(
     modified_after: Option<Timestamp>,
     links_to: Vec<String>,
     links_from: Vec<String>,
-    match_pattern: Vec<String>,
-    match_strategy: MatchStrategy,
+    _match_pattern: Vec<String>,
+    _match_strategy: MatchStrategy,
     sort_configs: Vec<SortConfig>,
     limit: Option<usize>,
     output_format: OutputFormat,
@@ -52,19 +45,81 @@ pub fn handle_command(
 ) -> Result<()> {
     let root = &config.root;
     let db_path = zet::core::db_dir(root);
-    let mut db = DB::open(db_path)?;
+    let db = DB::open(db_path)?;
 
     let separator = delimiter.unwrap_or("\n".into());
 
-    let mut documents = Document::list(&mut db)?;
+    // Build query from CLI args
+    let mut query = DocumentQuery::new();
 
-    // sort by options
-    sort_documents_by_config(sort_configs, &mut documents);
+    if !ids.is_empty() {
+        query = query.with_ids(ids);
+    }
+    if !titles.is_empty() {
+        query = query.with_titles(titles);
+    }
+    if !paths.is_empty() {
+        query = query.with_paths(paths);
+    }
+    if !tags.is_empty() {
+        query = query.with_tags(tags);
+    }
+    if tagless {
+        query = query.tagless();
+    }
+    if !exclude_list.is_empty() {
+        query = query.exclude_ids(exclude_list);
+    }
+    if !exclude_by_path.is_empty() {
+        query = query.exclude_paths(exclude_by_path);
+    }
+    if let Some(ts) = created {
+        query = query.created(ts);
+    }
+    if let Some(ts) = modified {
+        query = query.modified(ts);
+    }
+    if let Some(ts) = created_before {
+        query = query.created_before(ts);
+    }
+    if let Some(ts) = created_after {
+        query = query.created_after(ts);
+    }
+    if let Some(ts) = modified_before {
+        query = query.modified_before(ts);
+    }
+    if let Some(ts) = modified_after {
+        query = query.modified_after(ts);
+    }
+    if !links_to.is_empty() {
+        query = query.links_to(links_to);
+    }
+    if !links_from.is_empty() {
+        query = query.links_from(links_from);
+    }
 
-    // limit total lines rendered
-    if let Some(limit) = limit {
-        documents.truncate(limit);
-    };
+    // Add sorting
+    for SortConfig { by, order } in sort_configs {
+        let query_by = match by {
+            SortByOption::Modified => QuerySortByOption::Modified,
+            SortByOption::Created => QuerySortByOption::Created,
+            SortByOption::Id => QuerySortByOption::Id,
+            SortByOption::Path => QuerySortByOption::Path,
+            SortByOption::Title => QuerySortByOption::Title,
+        };
+        let query_order = match order {
+            SortOrder::Ascending => QuerySortOrder::Ascending,
+            SortOrder::Descending => QuerySortOrder::Descending,
+        };
+        query = query.order_by(query_by, query_order);
+    }
+
+    // Add limit
+    if let Some(n) = limit {
+        query = query.limit(n);
+    }
+
+    let documents = query.execute(&db)?;
 
     let mut writer = std::io::BufWriter::new(std::io::stdout());
     match output_format {
@@ -109,26 +164,3 @@ pub fn handle_command(
 const USER_INPUT_TEMPLATE_NAME: &str = "user_input_template";
 const DEFAULT_TEMPLATE: &str = r#"# {{ title }}\n"#;
 const DEFAULT_TEMPLATE_NAME: &str = "default_template";
-
-fn sort_documents_by_config(sort_configs: Vec<SortConfig>, documents: &mut Vec<Document>) {
-    documents.sort_by(|a, b| {
-        for SortConfig { by, order } in &sort_configs {
-            let res = match by {
-                SortByOption::Modified => a.modified.cmp(&b.modified),
-                SortByOption::Created => a.created.cmp(&b.created),
-                SortByOption::Id => a.id.cmp(&b.id),
-                SortByOption::Path => a.path.cmp(&b.path),
-                SortByOption::Title => a.title.cmp(&b.title),
-            };
-            let res = match order {
-                SortOrder::Ascending => res,
-                SortOrder::Descending => res.reverse(),
-            };
-            match res {
-                std::cmp::Ordering::Equal => {}
-                _ => return res,
-            }
-        }
-        std::cmp::Ordering::Equal
-    });
-}

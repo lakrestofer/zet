@@ -1,6 +1,7 @@
 pub mod date_parser;
 pub mod db;
 pub mod parser;
+pub mod query;
 pub mod slug;
 pub mod template_engine;
 pub mod types;
