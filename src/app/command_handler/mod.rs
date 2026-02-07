@@ -13,7 +13,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
     match command {
         Command::Init { root, force } => init::handle_command(root, force)?,
         Command::Parse { path, pretty_print } => {
-            parse::handle_command(FrontMatterFormat::Yaml, path)?
+            parse::handle_command(FrontMatterFormat::Yaml, pretty_print, path)?
         }
         Command::RawParse { path } => raw_parse::handle_command(FrontMatterFormat::Yaml, path)?,
         Command::Index { force } => {
@@ -24,9 +24,12 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             index::handle_command(config, force)?
         }
         Command::Query {
-            tags: tag,
+            ids,
+            titles,
+            paths,
+            tags,
             tagless,
-            exclude_list: exclude,
+            exclude_list,
             exclude_by_path,
             created,
             modified,
@@ -36,9 +39,9 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             modified_after,
             links_to,
             links_from,
-            match_patterns: match_pattern,
+            match_patterns,
             match_strategy,
-            sort_configs: sort_config,
+            sort_configs,
             limit,
             output_format,
             delimiter,
@@ -52,9 +55,12 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
 
             query::handle_command(
                 config,
-                tag,
+                ids,
+                titles,
+                paths,
+                tags,
                 tagless,
-                exclude,
+                exclude_list,
                 exclude_by_path,
                 created,
                 modified,
@@ -64,9 +70,9 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
                 modified_after,
                 links_to,
                 links_from,
-                match_pattern,
+                match_patterns,
                 match_strategy,
-                sort_config,
+                sort_configs,
                 limit,
                 output_format,
                 delimiter,

@@ -7,7 +7,11 @@ use zet::core::parser::FrontMatterParser;
 use crate::app::preamble::*;
 use zet::preamble::*;
 
-pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> Result<()> {
+pub fn handle_command(
+    front_matter_format: FrontMatterFormat,
+    pretty_print: bool,
+    path: PathBuf,
+) -> Result<()> {
     log::debug!("parsing {:?}", path);
 
     let frontmatter_parser = FrontMatterParser::new(front_matter_format);
@@ -24,10 +28,13 @@ pub fn handle_command(front_matter_format: FrontMatterFormat, path: PathBuf) -> 
     res.insert("frontmatter".into(), frontmatter);
     res.insert("content".into(), content);
 
-    let res = serde_json::to_string(&res)?;
+    let out = BufWriter::new(std::io::stdout());
 
-    let mut out = BufWriter::new(std::io::stdout());
-    write!(out, "{}", res)?;
+    if pretty_print {
+        serde_json::to_writer_pretty(out, &res)?;
+    } else {
+        serde_json::to_writer(out, &res)?;
+    }
 
     Ok(())
 }

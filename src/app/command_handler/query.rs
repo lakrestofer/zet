@@ -1,9 +1,12 @@
+use std::fmt::Debug;
 use std::io::BufWriter;
 use std::io::Write;
 use std::ops::Range;
 
 use jiff::Timestamp;
 use pulldown_cmark::Parser;
+use tera::Context;
+use tera::Tera;
 use zet::core::db::DB;
 use zet::core::db::DbList;
 use zet::core::parser::DocumentParser;
@@ -19,13 +22,15 @@ use crate::app::commands::SortOrder;
 use crate::app::preamble::*;
 use zet::preamble::*;
 
-/// Instead of producing an ast, this command simply outputs the event stream as
-/// returned by pulldown_cmark
 pub fn handle_command(
+    // configuration context
     config: zet::config::Config,
+    // query parameters
+    ids: Vec<String>,
+    titles: Vec<String>,
+    paths: Vec<String>,
     tags: Vec<String>,
     tagless: bool,
-
     exclude_list: Vec<String>,
     exclude_by_path: Vec<String>,
     created: Option<Timestamp>,
@@ -61,19 +66,7 @@ pub fn handle_command(
         documents.truncate(limit);
     };
 
-    let writer = std::io::BufWriter::new(std::io::stdout());
-    render_query_output(output_format, pretty, separator, documents, writer)?;
-
-    Ok(())
-}
-
-fn render_query_output(
-    output_format: OutputFormat,
-    pretty: bool,
-    separator: String,
-    documents: Vec<Document>,
-    mut writer: BufWriter<std::io::Stdout>,
-) -> Result<()> {
+    let mut writer = std::io::BufWriter::new(std::io::stdout());
     match output_format {
         OutputFormat::Ids => {
             for d in documents {
@@ -87,10 +80,35 @@ fn render_query_output(
                 serde_json::to_writer(writer, &documents)?;
             }
         }
-        OutputFormat::Template => {}
+        OutputFormat::Template => {
+            let mut tera = Tera::default();
+            tera.add_raw_template(DEFAULT_TEMPLATE_NAME, DEFAULT_TEMPLATE)?;
+
+            match template {
+                Some(template) => {
+                    tera.add_raw_template(USER_INPUT_TEMPLATE_NAME, &template)?;
+
+                    for d in documents {
+                        let ctx = Context::from_serialize(d)?;
+                        tera.render_to(USER_INPUT_TEMPLATE_NAME, &ctx, &mut writer)?;
+                    }
+                }
+                None => {
+                    for d in documents {
+                        let ctx = Context::from_serialize(d)?;
+                        tera.render_to(DEFAULT_TEMPLATE_NAME, &ctx, &mut writer)?;
+                    }
+                }
+            }
+        }
     }
+
     Ok(())
 }
+
+const USER_INPUT_TEMPLATE_NAME: &str = "user_input_template";
+const DEFAULT_TEMPLATE: &str = r#"# {{ title }}\n"#;
+const DEFAULT_TEMPLATE_NAME: &str = "default_template";
 
 fn sort_documents_by_config(sort_configs: Vec<SortConfig>, documents: &mut Vec<Document>) {
     documents.sort_by(|a, b| {

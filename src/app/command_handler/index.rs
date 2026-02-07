@@ -11,7 +11,9 @@ use zet::core::types::heading::NewDocumentHeading;
 use zet::core::types::link::{DocumentLink, DocumentLinkSource, NewDocumentLink};
 use zet::core::types::task::{DocumentTask, NewDocumentTask};
 use zet::core::types::{RangeEnd, RangeStart};
-use zet::core::{extract_id_from_frontmatter, extract_title_from_ast, extract_title_from_frontmatter};
+use zet::core::{
+    extract_id_from_frontmatter, extract_title_from_ast, extract_title_from_frontmatter,
+};
 use zet::preamble::*;
 use zet::{
     config::Config,
@@ -117,7 +119,10 @@ fn process_new_documents(
     headings: &mut Vec<NewDocumentHeading>,
     tasks: &mut Vec<NewDocumentTask>,
 ) -> Result<()> {
+    log::info!("processing new documents");
+
     for DocumentPath(path) in new {
+        log::debug!("processing {:?}", path);
         // metadata
         let metadata = std::fs::metadata(&path)?;
         let modified = ModifiedTimestamp(metadata.modified().map(TryFrom::try_from)??);

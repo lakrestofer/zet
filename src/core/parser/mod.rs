@@ -153,8 +153,9 @@ fn parse_event(event: Event, range: Range<usize>, iter: &mut ParserIterator) -> 
         Event::HardBreak => Ok(Node::hardbreak(range)),
         Event::Rule => Ok(Node::horizontalrule(range)),
         _ => Err(eyre!(
-            "unexpected event! event should have been consumed by previous parse rule: {:?}",
-            event
+            "unexpected event! event should have been consumed by previous parse rule: {:?} - {:?}",
+            event,
+            range
         )),
     }
 }

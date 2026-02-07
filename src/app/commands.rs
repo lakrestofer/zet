@@ -27,6 +27,12 @@ pub enum Command {
         force: bool,
     },
     Query {
+        #[arg(long = "id", value_delimiter = ',')]
+        ids: Vec<String>,
+        #[arg(long = "title", value_delimiter = ',')]
+        titles: Vec<String>,
+        #[arg(long = "path", value_delimiter = ',')]
+        paths: Vec<String>,
         ////////////////////////////////////////////////////////////
         // tags
         ////////////////////////////////////////////////////////////
