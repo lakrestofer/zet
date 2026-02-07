@@ -1,6 +1,6 @@
-+++
-title = "Delta Document"
-+++
+---
+title: "Delta Document"
+---
 
 # Delta Document
 

@@ -1,7 +1,9 @@
-+++
-title = "Alpha Document"
-tags = ["work", "urgent"]
-+++
+---
+title: "Alpha Document"
+tags:
+  - work
+  - urgent
+---
 
 # Alpha Document
 

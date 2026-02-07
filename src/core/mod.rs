@@ -275,6 +275,18 @@ pub fn extract_id_from_frontmatter(data: &serde_json::Value) -> Option<DocumentI
     None
 }
 
+pub fn extract_tags_from_frontmatter(frontmatter: &serde_json::Value) -> Vec<String> {
+    frontmatter
+        .get("tags")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_lowercase()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// TODO write documentation for how we retrieve the title
 pub fn extract_title_from_ast(ast: &[ast_nodes::Node]) -> Option<String> {
     // the first heading found

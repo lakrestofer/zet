@@ -1,7 +1,8 @@
-+++
-title = "Gamma Document"
-tags = ["personal"]
-+++
+---
+title: "Gamma Document"
+tags:
+  - personal
+---
 
 # Gamma Document
 

@@ -156,19 +156,18 @@ WHERE 1=1"#,
             params.extend(self.titles.into_iter().map(Value::from));
         }
 
-        // --path filter
-        if !self.paths.is_empty() {
-            let placeholders = generate_placeholders(self.paths.len());
-            sql.push_str(&format!(" AND d.path IN ({placeholders})"));
-            params.extend(self.paths.into_iter().map(Value::from));
+        // --path filter (suffix match)
+        for path in &self.paths {
+            sql.push_str(" AND d.path LIKE ?");
+            params.push(Value::from(format!("%{}", path)));
         }
 
         // --tag filter (AND semantics: document must have ALL specified tags)
-        for tag in self.tags {
+        for tag in &self.tags {
             sql.push_str(
-                " AND EXISTS (SELECT 1 FROM document_tag_map m JOIN tag t ON m.tag_id = t.id WHERE m.document_id = d.id AND t.tag = ?)",
+                " AND EXISTS (SELECT 1 FROM document_tag_map m JOIN tag t ON m.tag_id = t.id WHERE m.document_id = d.id AND LOWER(t.tag) = LOWER(?))",
             );
-            params.push(Value::from(tag));
+            params.push(Value::from(tag.clone()));
         }
 
         // --tagless filter
@@ -185,11 +184,10 @@ WHERE 1=1"#,
             params.extend(self.exclude_ids.into_iter().map(Value::from));
         }
 
-        // --exclude-by-path filter
-        if !self.exclude_paths.is_empty() {
-            let placeholders = generate_placeholders(self.exclude_paths.len());
-            sql.push_str(&format!(" AND d.path NOT IN ({placeholders})"));
-            params.extend(self.exclude_paths.into_iter().map(Value::from));
+        // --exclude-by-path filter (suffix match)
+        for path in &self.exclude_paths {
+            sql.push_str(" AND d.path NOT LIKE ?");
+            params.push(Value::from(format!("%{}", path)));
         }
 
         // --created filter (exact date match)

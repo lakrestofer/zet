@@ -9,10 +9,12 @@ use zet::core::parser::ast_nodes::{Node, TaskListMarker};
 use zet::core::path_to_id;
 use zet::core::types::heading::NewDocumentHeading;
 use zet::core::types::link::{DocumentLink, DocumentLinkSource, NewDocumentLink};
+use zet::core::types::tag::NewDocumentTag;
 use zet::core::types::task::{DocumentTask, NewDocumentTask};
 use zet::core::types::{RangeEnd, RangeStart};
 use zet::core::{
-    extract_id_from_frontmatter, extract_title_from_ast, extract_title_from_frontmatter,
+    extract_id_from_frontmatter, extract_tags_from_frontmatter, extract_title_from_ast,
+    extract_title_from_frontmatter,
 };
 use zet::preamble::*;
 use zet::{
@@ -54,7 +56,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     let mut links = Vec::new();
     let mut headings = Vec::new();
     let mut tasks = Vec::new();
-    // let mut headings = Vec::new();
+    let mut tags = Vec::new();
     process_new_documents(
         &config,
         new,
@@ -62,6 +64,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
         &mut links,
         &mut headings,
         &mut tasks,
+        &mut tags,
     )?;
     process_existing_documents(
         &config,
@@ -70,6 +73,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
         &mut links,
         &mut headings,
         &mut tasks,
+        &mut tags,
     )?;
 
     // Perform an upsert on the documents. This will clear any associated data
@@ -81,6 +85,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     let resolved_links = resolve_links(&db, links)?;
     DocumentLink::insert(&mut db, &resolved_links)?;
     DocumentTask::insert(&mut db, &tasks)?;
+    NewDocumentTag::insert(&mut db, &tags)?;
 
     Ok(())
 }
@@ -118,6 +123,7 @@ fn process_new_documents(
     links: &mut Vec<UnresolvedLink>,
     headings: &mut Vec<NewDocumentHeading>,
     tasks: &mut Vec<NewDocumentTask>,
+    tags: &mut Vec<NewDocumentTag>,
 ) -> Result<()> {
     log::info!("processing new documents");
 
@@ -154,6 +160,14 @@ fn process_new_documents(
         extract_headings_from_ast(headings, &id, &document);
         extract_tasks_from_ast(tasks, &id, &document);
 
+        // tags
+        for tag in extract_tags_from_frontmatter(&frontmatter) {
+            tags.push(NewDocumentTag {
+                document_id: id.clone(),
+                tag,
+            });
+        }
+
         // documents
         documents.push(Document {
             id,
@@ -183,6 +197,7 @@ fn process_existing_documents(
     links: &mut Vec<UnresolvedLink>,
     headings: &mut Vec<NewDocumentHeading>,
     tasks: &mut Vec<NewDocumentTask>,
+    tags: &mut Vec<NewDocumentTag>,
 ) -> Result<()> {
     for (id, path, modified, created, hash) in updated {
         let content = std::fs::read_to_string(&path.0)?;
@@ -204,6 +219,14 @@ fn process_existing_documents(
         extract_links_from_ast(links, &id, &document);
         extract_headings_from_ast(headings, &id, &document);
         extract_tasks_from_ast(tasks, &id, &document);
+
+        // tags
+        for tag in extract_tags_from_frontmatter(&frontmatter) {
+            tags.push(NewDocumentTag {
+                document_id: id.clone(),
+                tag,
+            });
+        }
 
         documents.push(Document {
             id,

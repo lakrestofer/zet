@@ -1,7 +1,9 @@
-+++
-title = "Beta Document"
-tags = ["work", "personal"]
-+++
+---
+title: "Beta Document"
+tags:
+  - work
+  - personal
+---
 
 # Beta Document
 
