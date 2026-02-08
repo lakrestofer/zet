@@ -31,7 +31,7 @@ pub fn handle_command(root: &Path, config: Config, _force: bool) -> Result<()> {
     let mut db = DB::open(db_path)?;
 
     // we figure out which documents we need to process,reprocess and delete
-    let (new, updated, removed) = zet::core::collection_status(&root, &db);
+    let (new, updated, removed) = zet::core::collection_status(root, &db);
 
     log::info!(
         "collection status since last index: n_new={}, n_updated={}, n_removed={}",
@@ -102,7 +102,7 @@ fn resolve_links(db: &DB, unresolved_links: Vec<UnresolvedLink>) -> Result<Vec<N
             .find(|id| link.to.ends_with(&id.0))
             .map(|v| v.to_owned());
         links.push(NewDocumentLink {
-            from: link.from.into(),
+            from: link.from,
             to: res.map(From::from),
             range_start: link.range_start,
             range_end: link.range_end,
@@ -293,35 +293,32 @@ fn extract_headings_from_ast(
     nodes: &Vec<Node>,
 ) {
     for node in nodes {
-        match node {
-            Node::Heading {
-                range,
-                id,
-                classes,
-                attributes,
-                level,
-                content,
-                children,
-            } => {
-                let metadata = json!({
-                    "id": id,
-                    "classes": classes,
-                    "attributes": attributes
-                });
-                let range_start = range.start;
-                let range_end = range.end;
-                headings.push(NewDocumentHeading {
-                    document_id: document_id.clone(),
-                    content: content.to_owned(),
-                    level: *level,
-                    metadata,
-                    range_start,
-                    range_end,
-                });
-                extract_headings_from_ast(headings, document_id, children);
-            }
-            // no other node should contain heading nodes
-            _ => {}
+        if let Node::Heading {
+            range,
+            id,
+            classes,
+            attributes,
+            level,
+            content,
+            children,
+        } = node
+        {
+            let metadata = json!({
+                "id": id,
+                "classes": classes,
+                "attributes": attributes
+            });
+            let range_start = range.start;
+            let range_end = range.end;
+            headings.push(NewDocumentHeading {
+                document_id: document_id.clone(),
+                content: content.to_owned(),
+                level: *level,
+                metadata,
+                range_start,
+                range_end,
+            });
+            extract_headings_from_ast(headings, document_id, children);
         }
     }
 }

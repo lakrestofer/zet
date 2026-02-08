@@ -27,18 +27,10 @@ pub mod config {
     use crate::core::{collection_config_file, global_config_file};
     use crate::result::Result;
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Default, Debug, Serialize, Deserialize)]
     pub struct Config {
         // pub root: PathBuf,
         pub front_matter_format: FrontMatterFormat,
-    }
-
-    impl Default for Config {
-        fn default() -> Self {
-            Self {
-                front_matter_format: Default::default(),
-            }
-        }
     }
 
     impl Config {

@@ -1,6 +1,6 @@
 use pulldown_cmark::Parser;
 use std::fs;
-use zet::core::parser::{DocumentParser, DocumentParserOptions};
+use zet::core::parser::DocumentParserOptions;
 
 fn main() {
     let markdown_input = fs::read_to_string("CLAUDE.md").expect("Failed to read CLAUDE.md");

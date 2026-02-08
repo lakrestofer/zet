@@ -121,24 +121,23 @@ pub fn hash(content: &str) -> u32 {
     XxHash32::oneshot(HASH_SEED, content.as_bytes())
 }
 
+pub type NewDocuments = Vec<DocumentPath>;
+pub type ModifiedDocuments = Vec<(
+    DocumentId,
+    DocumentPath,
+    ModifiedTimestamp,
+    CreatedTimestamp,
+    u32,
+)>;
+pub type DeletedDocuments = Vec<DocumentId>;
+
+pub type CollectionStatus = (NewDocuments, ModifiedDocuments, DeletedDocuments);
+
 /// given a directory of markdown files, determine the following:
 /// - are there any new documents?
 /// - are there any documents that we need to reparse?
 /// - are there any documents that have been removed?
-pub fn collection_status(
-    root: &Path,
-    db: &DB,
-) -> (
-    Vec<DocumentPath>,
-    Vec<(
-        DocumentId,
-        DocumentPath,
-        ModifiedTimestamp,
-        CreatedTimestamp,
-        u32,
-    )>,
-    Vec<DocumentId>,
-) {
+pub fn collection_status(root: &Path, db: &DB) -> CollectionStatus {
     // collect paths of document from root
     let disk_paths: Vec<PathBuf> = workspace_paths(root).unwrap();
 

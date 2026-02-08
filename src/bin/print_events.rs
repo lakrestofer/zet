@@ -1,7 +1,7 @@
 use clap::Parser as CliParser;
 use pulldown_cmark::Parser;
 use std::{fs, path::PathBuf};
-use zet::core::parser::{DocumentParser, DocumentParserOptions};
+use zet::core::parser::DocumentParserOptions;
 
 #[derive(CliParser)]
 struct Cli {

@@ -6,9 +6,11 @@ use clap::Subcommand;
 use clap::ValueEnum;
 use color_eyre::eyre::eyre;
 use jiff::Timestamp;
+use std::fmt::Display;
 use std::path::PathBuf;
 use zet::core::date_parser::NaturalDateParser;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 pub enum Command {
     Parse {
@@ -142,7 +144,7 @@ pub enum SortByOption {
     // WordCount,
 }
 
-fn parse_sort_option<'src>(input: &'src str) -> zet::result::Result<SortConfig> {
+fn parse_sort_option(input: &str) -> zet::result::Result<SortConfig> {
     let input = input.to_lowercase();
 
     let parser = choice((
@@ -203,14 +205,14 @@ pub enum MatchStrategy {
     RegularExpr,
 }
 
-impl ToString for MatchStrategy {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl Display for MatchStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
-impl ToString for OutputFormat {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl Display for OutputFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 

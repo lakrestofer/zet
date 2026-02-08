@@ -413,9 +413,9 @@ impl ToString for NodeKind {
     }
 }
 
-impl Into<String> for NodeKind {
-    fn into(self) -> String {
-        self.to_string()
+impl From<NodeKind> for String {
+    fn from(value: NodeKind) -> Self {
+        value.to_string()
     }
 }
 

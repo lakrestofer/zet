@@ -13,10 +13,7 @@ use pulldown_cmark::{
     CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, OffsetIter, Options, Parser, Tag, TagEnd,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    iter::{FilterMap, Peekable},
-    ops::Range,
-};
+use std::{iter::Peekable, ops::Range};
 
 // type Item = (Event<'a>, Range<usize>);
 
@@ -311,7 +308,7 @@ fn parse_reference_link(
 ) -> std::result::Result<Node, color_eyre::eyre::Error> {
     let mut title = String::new();
 
-    while let Some((event, range)) = iter.next() {
+    while let Some((event, _range)) = iter.next() {
         match event {
             Event::End(TagEnd::Link) => break,
             Event::Text(t) => title.push_str(&t),
@@ -362,7 +359,7 @@ fn parse_inline_link(
 
     let mut title = String::new();
 
-    while let Some((event, range)) = iter.next() {
+    while let Some((event, _range)) = iter.next() {
         match event {
             Event::End(TagEnd::Link) => break,
             Event::Text(t) => title.push_str(&t),
@@ -613,7 +610,7 @@ fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node
 
 fn parse_paragraph_in_item(
     checkmark: &mut TaskListMarker,
-    range: Range<usize>,
+    _range: Range<usize>,
     iter: &mut ParserIterator<'_>,
 ) -> Result<Vec<Node>> {
     let mut children = Vec::new();
