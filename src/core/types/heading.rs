@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        db::{DbDelete, DbInsert, DbList},
+        db::{DbInsert, DbList},
         types::document::DocumentId,
     },
     result::Result,

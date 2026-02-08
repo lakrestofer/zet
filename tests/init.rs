@@ -5,7 +5,7 @@ use helpers::{cli::*, db::*, *};
 
 #[test]
 fn test_init_creates_workspace() {
-    let (temp, workspace) = setup_temp_workspace();
+    let (_temp, workspace) = setup_temp_workspace();
 
     // Run init command
     run_cli_cmd(&["init"], &workspace).assert().success();
@@ -32,7 +32,7 @@ fn test_init_creates_workspace() {
 
 #[test]
 fn test_init_fails_without_force() {
-    let (temp, workspace) = setup_temp_workspace();
+    let (_temp, workspace) = setup_temp_workspace();
 
     // First init should succeed
     run_cli_cmd(&["init"], &workspace).assert().success();

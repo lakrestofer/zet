@@ -16,7 +16,7 @@ pub mod result {
 }
 
 pub mod config {
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
 
     use figment::Figment;
     use figment::providers::{Env, Format, Toml};

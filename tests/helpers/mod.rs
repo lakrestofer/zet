@@ -3,7 +3,6 @@ pub mod db;
 
 use assert_fs::TempDir;
 use color_eyre::Result;
-use ignore::{DirEntry, Walk, WalkBuilder};
 use std::path::{Path, PathBuf};
 
 /// Creates a temporary workspace directory for testing

@@ -13,7 +13,7 @@ use pulldown_cmark::{
     CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, OffsetIter, Options, Parser, Tag, TagEnd,
 };
 use serde::{Deserialize, Serialize};
-use std::{iter::Peekable, ops::Range};
+use std::{fmt::Display, iter::Peekable, ops::Range};
 
 // type Item = (Event<'a>, Range<usize>);
 
@@ -63,9 +63,9 @@ pub enum FrontMatterParser {
     YamlParser(Matter<YAML>),
 }
 
-impl ToString for FrontMatterFormat {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl Display for FrontMatterFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -211,9 +211,7 @@ fn parse_start(start_tag: Tag, range: Range<usize>, iter: &mut ParserIterator) -
             LinkType::CollapsedUnknown | LinkType::ReferenceUnknown | LinkType::ShortcutUnknown => {
                 todo!()
             }
-            LinkType::Collapsed => {
-                return Err(eyre!("unsupported link type: {link_type:?}"));
-            }
+            LinkType::Collapsed => Err(eyre!("unsupported link type: {link_type:?}")),
         },
 
         // parse_link(link_type, dest_url, title, id, range, iter),
@@ -233,9 +231,8 @@ fn parse_email_link(
     iter: &mut ParserIterator<'_>,
 ) -> std::result::Result<Node, color_eyre::eyre::Error> {
     while let Some((event, _)) = iter.next() {
-        match event {
-            Event::End(TagEnd::Link) => break,
-            _ => {}
+        if let Event::End(TagEnd::Link) = event {
+            break;
         }
     }
 
@@ -248,9 +245,8 @@ fn parse_auto_link(
     iter: &mut ParserIterator<'_>,
 ) -> std::result::Result<Node, color_eyre::eyre::Error> {
     while let Some((event, _)) = iter.next() {
-        match event {
-            Event::End(TagEnd::Link) => break,
-            _ => {}
+        if let Event::End(TagEnd::Link) = event {
+            break;
         }
     }
 
@@ -287,17 +283,16 @@ fn parse_shortcut_link(
     iter: &mut ParserIterator<'_>,
 ) -> std::result::Result<Node, color_eyre::eyre::Error> {
     while let Some((event, _)) = iter.next() {
-        match event {
-            Event::End(TagEnd::Link) => break,
-            _ => {}
+        if let Event::End(TagEnd::Link) = event {
+            break;
         }
     }
 
-    return Ok(Node::shortcutlink(
+    Ok(Node::shortcutlink(
         range,
         id.to_string(),
         dest_url.to_string(),
-    ));
+    ))
 }
 
 fn parse_reference_link(
@@ -333,9 +328,8 @@ fn parse_image(
     iter: &mut ParserIterator<'_>,
 ) -> Result<Node> {
     for (event, _) in iter.by_ref() {
-        match event {
-            Event::End(TagEnd::Image) => break,
-            _ => {} // ignore link children
+        if let Event::End(TagEnd::Image) = event {
+            break;
         }
     }
     match link_type {
@@ -478,9 +472,10 @@ fn parse_table_cell(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Resul
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::TableCell) => break,
-            _ => children.push(parse_event(event, range, iter)?),
+        if let Event::End(TagEnd::TableCell) = event {
+            break;
+        } else {
+            children.push(parse_event(event, range, iter)?)
         }
     }
 
@@ -636,9 +631,10 @@ fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>
     let mut children = Vec::new();
 
     while let Some((event, range)) = iter.next() {
-        match event {
-            Event::End(TagEnd::List(_)) => break,
-            _ => children.push(parse_event(event, range, iter)?),
+        if let Event::End(TagEnd::List(_)) = event {
+            break;
+        } else {
+            children.push(parse_event(event, range, iter)?)
         }
     }
 

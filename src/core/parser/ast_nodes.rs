@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -407,9 +409,9 @@ pub enum NodeKind {
     InlineMath,
 }
 
-impl ToString for NodeKind {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl Display for NodeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 

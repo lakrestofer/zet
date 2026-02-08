@@ -1,8 +1,6 @@
-use rusqlite::Connection;
 use std::path::Path;
 use zet::core::db::DB;
-use zet::core::types::document::{Document, DocumentId};
-use zet::core::types::link::DocumentLink;
+use zet::core::types::document::DocumentId;
 
 /// Opens the test database in the workspace
 pub fn open_test_db(workspace_root: &Path) -> DB {

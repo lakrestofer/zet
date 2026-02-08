@@ -112,6 +112,7 @@ fn resolve_links(db: &DB, unresolved_links: Vec<UnresolvedLink>) -> Result<Vec<N
     Ok(links)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_new_documents(
     root: &Path,
     config: &Config,
@@ -180,6 +181,7 @@ fn process_new_documents(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_existing_documents(
     _root: &Path,
     config: &Config,

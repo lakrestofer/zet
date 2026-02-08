@@ -16,6 +16,7 @@ use crate::app::commands::SortConfig;
 use crate::app::commands::SortOrder;
 use zet::preamble::*;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_command(
     root: &Path,
     // configuration context
