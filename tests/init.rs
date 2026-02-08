@@ -11,12 +11,12 @@ fn test_init_creates_workspace() {
     run_cli_cmd(&["init"], &workspace).assert().success();
 
     // Verify .zet directory exists
-    let zet_directory = zet_dir(&workspace);
+    let zet_directory = zet::core::collection_config_dir(&workspace);
     assert!(zet_directory.exists(), ".zet directory should exist");
     assert!(zet_directory.is_dir(), ".zet should be a directory");
 
     // Verify database exists
-    let database_path = db_path(&workspace);
+    let database_path = zet::core::collection_db_file(&workspace);
     assert!(database_path.exists(), "db.sqlite should exist");
 
     // Verify database has correct schema

@@ -3,6 +3,7 @@ use rusqlite::{params, params_from_iter};
 use serde_json::{Value, json};
 use sql_minifier::macros::minify_sql as sql;
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 use zet::core::db::{DbDelete, DbInsert, DbUpdate};
 use zet::core::parser::DocumentParserOptions;
 use zet::core::parser::ast_nodes::{Node, TaskListMarker};
@@ -31,13 +32,13 @@ use zet::{
     },
 };
 
-pub fn handle_command(config: Config, _force: bool) -> Result<()> {
-    let root = &config.root;
-    let db_path = zet::core::db_dir(root);
+pub fn handle_command(root: &Path, config: Config, _force: bool) -> Result<()> {
+    // let root = &config.root;
+    let db_path = zet::core::collection_db_file(root);
     let mut db = DB::open(db_path)?;
 
     // we figure out which documents we need to process,reprocess and delete
-    let (new, updated, removed) = zet::core::collection_status(root, &db);
+    let (new, updated, removed) = zet::core::collection_status(&root, &db);
 
     log::info!(
         "collection status since last index: n_new={}, n_updated={}, n_removed={}",
@@ -58,6 +59,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
     let mut tasks = Vec::new();
     let mut tags = Vec::new();
     process_new_documents(
+        root,
         &config,
         new,
         &mut documents,
@@ -67,6 +69,7 @@ pub fn handle_command(config: Config, _force: bool) -> Result<()> {
         &mut tags,
     )?;
     process_existing_documents(
+        root,
         &config,
         updated,
         &mut documents,
@@ -117,6 +120,7 @@ fn resolve_links(db: &DB, unresolved_links: Vec<UnresolvedLink>) -> Result<Vec<N
 }
 
 fn process_new_documents(
+    root: &Path,
     config: &Config,
     new: Vec<DocumentPath>,
     documents: &mut Vec<Document>,
@@ -147,8 +151,8 @@ fn process_new_documents(
         let frontmatter = frontmatter.unwrap_or(serde_json::Value::Null);
 
         // id - check frontmatter first, then fall back to path-based generation
-        let id = extract_id_from_frontmatter(&frontmatter)
-            .unwrap_or_else(|| path_to_id(&config.root, &path));
+        let id =
+            extract_id_from_frontmatter(&frontmatter).unwrap_or_else(|| path_to_id(root, &path));
 
         // title
         let title = extract_title_from_frontmatter(&frontmatter)
@@ -184,6 +188,7 @@ fn process_new_documents(
 }
 
 fn process_existing_documents(
+    root: &Path,
     config: &Config,
     updated: Vec<(
         zet::core::types::document::DocumentId,

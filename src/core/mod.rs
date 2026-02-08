@@ -10,7 +10,7 @@ use crate::core::parser::ast_nodes::{self};
 
 use crate::core::db::{DB, DbList};
 use crate::core::types::document::DocumentId;
-use crate::preamble::*;
+use crate::{CONFIG_NAME, preamble::*};
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -30,21 +30,40 @@ use ignore::{DirEntry, WalkBuilder};
 // Paths
 ////////////////////////////////////////////////////////////
 
-/// the directory where all documents are stored
-pub fn app_work_dir(root: &Path) -> PathBuf {
+/// .zet/
+/// collection configuration directory
+pub fn collection_config_dir(root: &Path) -> PathBuf {
     root.to_owned().join(format!(".{APP_NAME}"))
 }
 
+/// ~/.config/zet
+pub fn global_config_dir() -> PathBuf {
+    directories::ProjectDirs::from("xyz", "lakrestofer", APP_NAME)
+        .unwrap()
+        .config_dir()
+        .to_owned()
+}
+
+/// ~/.config/zet/config.toml
+pub fn global_config_file() -> PathBuf {
+    global_config_dir().join(CONFIG_NAME)
+}
+
 /// .zet/db.sqlite
-pub fn db_dir(root: &Path) -> PathBuf {
-    root.to_owned().join(format!(".{APP_NAME}")).join(DB_NAME)
+pub fn collection_db_file(root: &Path) -> PathBuf {
+    collection_config_dir(root).join(DB_NAME)
+}
+
+/// .zet/config.toml
+pub fn collection_config_file(root: &Path) -> PathBuf {
+    collection_config_dir(root).join(CONFIG_NAME)
 }
 
 /// from CWD, walk up the directory tree until a directory containing .zet
 /// is found or / is reached
 pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(dir) = dir {
-        if !app_work_dir(&dir).is_dir() {
+        if !collection_config_dir(&dir).is_dir() {
             log::error!("provided root dir does not contain a .zet directory!");
             return Err(eyre!("collection not found!"));
         } else {
@@ -55,7 +74,7 @@ pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
     let mut dir = std::path::absolute(std::env::current_dir()?)?;
     log::debug!("resolving zet root directory, starting from {:?}", dir);
     // check if dir contains .zet or if / have been reached
-    while !app_work_dir(&dir).is_dir() {
+    while !collection_config_dir(&dir).is_dir() {
         dir = match dir.parent() {
             Some(p) => p.to_owned(),
             None => {
@@ -65,7 +84,7 @@ pub fn resolve_root(dir: Option<PathBuf>) -> Result<PathBuf> {
         }
     }
 
-    if !app_work_dir(&dir).is_dir() {
+    if !collection_config_dir(&dir).is_dir() {
         log::error!("no .zet directory found");
         return Err(eyre!("collection not found!"));
     }

@@ -51,13 +51,13 @@ pub fn parse(
 
 #[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Default, Debug, ValueEnum)]
 pub enum FrontMatterFormat {
+    #[default]
+    #[serde(rename = "yaml")]
+    Yaml,
     #[serde(rename = "toml")]
     Toml,
     #[serde(rename = "json")]
     Json,
-    #[default]
-    #[serde(rename = "yaml")]
-    Yaml,
 }
 
 pub enum FrontMatterParser {

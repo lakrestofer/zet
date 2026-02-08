@@ -6,7 +6,7 @@ use zet::core::types::link::DocumentLink;
 
 /// Opens the test database in the workspace
 pub fn open_test_db(workspace_root: &Path) -> DB {
-    let db_path = super::db_path(workspace_root);
+    let db_path = zet::core::collection_db_file(workspace_root);
     DB::open(db_path).expect("Failed to open test database")
 }
 
@@ -73,10 +73,7 @@ pub fn get_links_from(db: &DB, doc_id: &str) -> Vec<(String, Option<String>)> {
         .expect("Failed to prepare links query");
 
     stmt.query_map([doc_id], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Option<String>>(1)?,
-        ))
+        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
     })
     .expect("Failed to query links")
     .map(|r| r.expect("Failed to extract link"))
@@ -142,10 +139,7 @@ pub fn get_document_ids_with_frontmatter_info(db: &DB) -> Vec<(DocumentId, bool)
         let data = row.get::<_, Option<serde_json::Value>>(1)?;
 
         // Check if the JSON has an 'id' field
-        let has_custom_id = data
-            .as_ref()
-            .and_then(|v| v.get("id"))
-            .is_some();
+        let has_custom_id = data.as_ref().and_then(|v| v.get("id")).is_some();
 
         Ok((DocumentId(id), has_custom_id))
     })

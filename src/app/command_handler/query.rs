@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::path::Path;
 
 use jiff::Timestamp;
 use tera::Context;
@@ -16,6 +17,7 @@ use crate::app::commands::SortOrder;
 use zet::preamble::*;
 
 pub fn handle_command(
+    root: &Path,
     // configuration context
     config: zet::config::Config,
     // query parameters
@@ -43,8 +45,7 @@ pub fn handle_command(
     pretty: bool,
     template: Option<String>,
 ) -> Result<()> {
-    let root = &config.root;
-    let db_path = zet::core::db_dir(root);
+    let db_path = zet::core::collection_db_file(root);
     let db = DB::open(db_path)?;
 
     let separator = delimiter.unwrap_or("\n".into());

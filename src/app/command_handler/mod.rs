@@ -17,11 +17,11 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
         }
         Command::RawParse { path } => raw_parse::handle_command(FrontMatterFormat::Yaml, path)?,
         Command::Index { force } => {
+            let root = zet::core::resolve_root(root)?;
             let config = zet::config::Config {
-                root: zet::core::resolve_root(root)?,
                 front_matter_format: FrontMatterFormat::Yaml,
             };
-            index::handle_command(config, force)?
+            index::handle_command(&root, config, force)?
         }
         Command::Query {
             ids,
@@ -48,12 +48,14 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             pretty,
             template,
         } => {
+            let root = zet::core::resolve_root(root)?;
+
             let config = zet::config::Config {
-                root: zet::core::resolve_root(root)?,
                 front_matter_format: FrontMatterFormat::Yaml,
             };
 
             query::handle_command(
+                &root,
                 config,
                 ids,
                 titles,

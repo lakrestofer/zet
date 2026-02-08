@@ -8,6 +8,7 @@ use color_eyre::eyre::eyre;
 use jiff::Timestamp;
 use std::path::PathBuf;
 use zet::core::date_parser::NaturalDateParser;
+
 #[derive(Subcommand, Debug)]
 pub enum Command {
     Parse {

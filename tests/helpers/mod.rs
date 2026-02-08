@@ -13,16 +13,6 @@ pub fn setup_temp_workspace() -> (TempDir, PathBuf) {
     (temp, workspace)
 }
 
-/// Returns the path to the .zet directory for a given workspace root
-pub fn zet_dir(workspace_root: &Path) -> PathBuf {
-    zet::core::app_work_dir(workspace_root)
-}
-
-/// Returns the path to the database file for a given workspace root
-pub fn db_path(workspace_root: &Path) -> PathBuf {
-    zet::core::db_dir(workspace_root)
-}
-
 /// Copies a fixture directory to the temporary workspace
 pub fn copy_fixture_to_temp(fixture_name: &str, temp: &TempDir) -> Result<()> {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
