@@ -19,7 +19,7 @@ use zet::preamble::*;
 pub fn handle_command(
     root: &Path,
     // configuration context
-    config: zet::config::Config,
+    _config: zet::config::Config,
     // query parameters
     ids: Vec<String>,
     titles: Vec<String>,

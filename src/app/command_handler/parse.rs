@@ -1,5 +1,4 @@
 use std::io::BufWriter;
-use std::io::Write;
 
 use zet::core::parser::FrontMatterFormat;
 use zet::core::parser::FrontMatterParser;

@@ -1,11 +1,7 @@
-use pulldown_cmark::Parser;
-use rusqlite::{params, params_from_iter};
 use serde_json::{Value, json};
 use sql_minifier::macros::minify_sql as sql;
-use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use zet::core::db::{DbDelete, DbInsert, DbUpdate};
-use zet::core::parser::DocumentParserOptions;
 use zet::core::parser::ast_nodes::{Node, TaskListMarker};
 use zet::core::path_to_id;
 use zet::core::types::heading::NewDocumentHeading;
@@ -22,10 +18,7 @@ use zet::{
     config::Config,
     core::{
         db::DB,
-        parser::{
-            FrontMatterParser,
-            ast_nodes::{self, NodeKind},
-        },
+        parser::FrontMatterParser,
         types::document::{
             CreatedTimestamp, Document, DocumentId, DocumentPath, ModifiedTimestamp,
         },
@@ -188,7 +181,7 @@ fn process_new_documents(
 }
 
 fn process_existing_documents(
-    root: &Path,
+    _root: &Path,
     config: &Config,
     updated: Vec<(
         zet::core::types::document::DocumentId,

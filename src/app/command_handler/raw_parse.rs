@@ -3,7 +3,6 @@ use std::io::Write;
 use std::ops::Range;
 
 use pulldown_cmark::Parser;
-use zet::core::parser::DocumentParser;
 use zet::core::parser::DocumentParserOptions;
 use zet::core::parser::FrontMatterFormat;
 use zet::core::parser::FrontMatterParser;
