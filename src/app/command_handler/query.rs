@@ -6,6 +6,7 @@ use tera::Context;
 use tera::Tera;
 use zet::core::db::DB;
 use zet::core::query::DocumentQuery;
+use zet::core::query::MatchStrategy as QueryMatchStrategy;
 use zet::core::query::SortByOption as QuerySortByOption;
 use zet::core::query::SortOrder as QuerySortOrder;
 
@@ -37,8 +38,8 @@ pub fn handle_command(
     modified_after: Option<Timestamp>,
     links_to: Vec<String>,
     links_from: Vec<String>,
-    _match_pattern: Vec<String>,
-    _match_strategy: MatchStrategy,
+    match_patterns: Vec<String>,
+    match_strategy: MatchStrategy,
     sort_configs: Vec<SortConfig>,
     limit: Option<usize>,
     output_format: OutputFormat,
@@ -98,6 +99,17 @@ pub fn handle_command(
     }
     if !links_from.is_empty() {
         query = query.links_from(links_from);
+    }
+
+    // Add match filter (combine multiple patterns with OR-style matching)
+    if !match_patterns.is_empty() {
+        // Join multiple patterns for FTS (space-separated terms are OR in FTS5)
+        let combined_pattern = match_patterns.join(" OR ");
+        let query_strategy = match match_strategy {
+            MatchStrategy::FTS => QueryMatchStrategy::Fts,
+            MatchStrategy::Exact | MatchStrategy::RegularExpr => QueryMatchStrategy::Exact,
+        };
+        query = query.with_match(combined_pattern, query_strategy);
     }
 
     // Add sorting

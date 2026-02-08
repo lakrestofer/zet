@@ -30,7 +30,10 @@ fn test_query_all_documents() {
 fn test_query_by_id() {
     let (_temp, workspace) = setup_query_workspace();
 
-    let ids = query_document_ids(&workspace, &["query", "--id", "alpha", "--output-format", "ids"]);
+    let ids = query_document_ids(
+        &workspace,
+        &["query", "--id", "alpha", "--output-format", "ids"],
+    );
 
     assert_eq!(ids.len(), 1);
     assert!(ids.contains(&"alpha".to_string()));
@@ -56,7 +59,13 @@ fn test_query_by_title() {
 
     let ids = query_document_ids(
         &workspace,
-        &["query", "--title", "Alpha Document", "--output-format", "ids"],
+        &[
+            "query",
+            "--title",
+            "Alpha Document",
+            "--output-format",
+            "ids",
+        ],
     );
 
     assert_eq!(ids.len(), 1);
@@ -112,7 +121,10 @@ fn test_query_by_multiple_tags_and() {
 fn test_query_tagless() {
     let (_temp, workspace) = setup_query_workspace();
 
-    let ids = query_document_ids(&workspace, &["query", "--tagless", "--output-format", "ids"]);
+    let ids = query_document_ids(
+        &workspace,
+        &["query", "--tagless", "--output-format", "ids"],
+    );
 
     assert_eq!(ids.len(), 1);
     assert!(ids.contains(&"delta".to_string()));
@@ -141,7 +153,13 @@ fn test_query_exclude_by_path() {
 
     let ids = query_document_ids(
         &workspace,
-        &["query", "--exclude-by-path", "alpha.md", "--output-format", "ids"],
+        &[
+            "query",
+            "--exclude-by-path",
+            "alpha.md",
+            "--output-format",
+            "ids",
+        ],
     );
 
     assert_eq!(ids.len(), 4);
@@ -238,7 +256,15 @@ fn test_query_sort_and_limit() {
 
     let ids = query_document_ids(
         &workspace,
-        &["query", "--sort", "id+", "--limit", "2", "--output-format", "ids"],
+        &[
+            "query",
+            "--sort",
+            "id+",
+            "--limit",
+            "2",
+            "--output-format",
+            "ids",
+        ],
     );
 
     assert_eq!(ids.len(), 2);
@@ -257,7 +283,15 @@ fn test_query_tag_and_exclude() {
     // Documents with tag "work" but excluding alpha
     let ids = query_document_ids(
         &workspace,
-        &["query", "--tag", "work", "--exclude", "alpha", "--output-format", "ids"],
+        &[
+            "query",
+            "--tag",
+            "work",
+            "--exclude",
+            "alpha",
+            "--output-format",
+            "ids",
+        ],
     );
 
     assert_eq!(ids.len(), 1);
@@ -271,7 +305,15 @@ fn test_query_links_to_and_tag() {
     // Documents that link to gamma AND have tag "work"
     let ids = query_document_ids(
         &workspace,
-        &["query", "--links-to", "gamma", "--tag", "work", "--output-format", "ids"],
+        &[
+            "query",
+            "--links-to",
+            "gamma",
+            "--tag",
+            "work",
+            "--output-format",
+            "ids",
+        ],
     );
 
     // Both alpha and beta link to gamma and have tag "work"

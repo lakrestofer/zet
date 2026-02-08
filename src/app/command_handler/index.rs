@@ -140,7 +140,7 @@ fn process_new_documents(
         let (frontmatter, document) = zet::core::parser::parse(
             FrontMatterParser::new(config.front_matter_format),
             zet::core::parser::DocumentParser::new(),
-            content,
+            content.clone(),
         )?;
         let frontmatter = frontmatter.unwrap_or(serde_json::Value::Null);
 
@@ -175,6 +175,7 @@ fn process_new_documents(
             modified,
             created,
             data: frontmatter,
+            body: content,
         });
     }
 
@@ -206,7 +207,7 @@ fn process_existing_documents(
         let (frontmatter, document) = zet::core::parser::parse(
             FrontMatterParser::new(config.front_matter_format),
             zet::core::parser::DocumentParser::new(),
-            content,
+            content.clone(),
         )?;
         // frontmatter and ast
         let frontmatter = frontmatter.unwrap_or(Value::Null);
@@ -236,6 +237,7 @@ fn process_existing_documents(
             modified,
             created,
             data: frontmatter,
+            body: content,
         });
     }
 

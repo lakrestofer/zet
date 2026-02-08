@@ -12,8 +12,12 @@ use crate::preamble::*;
 const DB_OPEN: &str = load_sql!("sql/db_open.sql");
 const DB_CLOSE: &str = load_sql!("sql/db_close.sql");
 
-const MIGRATIONS: LazyCell<Migrations> =
-    LazyCell::new(|| Migrations::new(vec![M::up(load_sql!("sql/001_init.sql"))]));
+const MIGRATIONS: LazyCell<Migrations> = LazyCell::new(|| {
+    Migrations::new(vec![
+        M::up(load_sql!("sql/001_init.sql")),
+        M::up(load_sql!("sql/002_fts.sql")),
+    ])
+});
 
 #[repr(transparent)]
 pub struct DB(Connection);
