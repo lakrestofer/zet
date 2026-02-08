@@ -27,12 +27,9 @@ impl DbInsert<NewDocumentTag, ()> for NewDocumentTag {
     fn insert(db: &mut rusqlite::Connection, values: &[NewDocumentTag]) -> Result<Vec<()>> {
         let tx = db.transaction()?;
         {
-            let mut insert_tag = tx.prepare(sql!(
-                r#"INSERT OR IGNORE INTO tag (tag) VALUES (?1)"#
-            ))?;
-            let mut get_tag_id = tx.prepare(sql!(
-                r#"SELECT id FROM tag WHERE tag = ?1"#
-            ))?;
+            let mut insert_tag =
+                tx.prepare(sql!(r#"INSERT OR IGNORE INTO tag (tag) VALUES (?1)"#))?;
+            let mut get_tag_id = tx.prepare(sql!(r#"SELECT id FROM tag WHERE tag = ?1"#))?;
             let mut insert_map = tx.prepare(sql!(
                 r#"INSERT INTO document_tag_map (document_id, tag_id) VALUES (?1, ?2)"#
             ))?;

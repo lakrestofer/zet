@@ -1,0 +1,76 @@
+---
+source: tests/ast_check.rs
+expression: res
+input_file: tests/input_files/list-with-checkmark.md
+---
+- ~
+- - Heading:
+      range:
+        start: 0
+        end: 10
+      id: ~
+      classes: []
+      attributes: []
+      level: 1
+      content: heading
+      children:
+        - List:
+            range:
+              start: 11
+              end: 45
+            start_index: ~
+            children:
+              - Item:
+                  range:
+                    start: 11
+                    end: 30
+                  task_list_marker: UnChecked
+                  children:
+                    - Text:
+                        range:
+                          start: 17
+                          end: 18
+                        text: a
+                  sub_lists:
+                    - List:
+                        range:
+                          start: 21
+                          end: 30
+                        start_index: ~
+                        children:
+                          - Item:
+                              range:
+                                start: 21
+                                end: 30
+                              task_list_marker: Checked
+                              children:
+                                - Text:
+                                    range:
+                                      start: 27
+                                      end: 28
+                                    text: b
+                              sub_lists: []
+              - Item:
+                  range:
+                    start: 30
+                    end: 38
+                  task_list_marker: UnChecked
+                  children:
+                    - Text:
+                        range:
+                          start: 36
+                          end: 37
+                        text: c
+                  sub_lists: []
+              - Item:
+                  range:
+                    start: 38
+                    end: 45
+                  task_list_marker: UnChecked
+                  children:
+                    - Text:
+                        range:
+                          start: 44
+                          end: 45
+                        text: d
+                  sub_lists: []

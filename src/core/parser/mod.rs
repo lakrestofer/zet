@@ -591,6 +591,13 @@ fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node
                 }
             }
             Event::Start(Tag::List(_)) => sub_lists.push(parse_event(event, range, iter)?),
+            Event::Start(Tag::Paragraph) => {
+                // Handle paragraph wrapper around task list items
+                // The TaskListMarker might appear inside the paragraph
+                let para_children = parse_paragraph_in_item(&mut checkmark, range, iter)?;
+                children.append(&mut sub_lists);
+                children.extend(para_children);
+            }
             // TODO: this structure looks a bit weird. Maybe we should reset the
             // sublist list? Check out the snapshot test for it and see if it
             // makes sense
@@ -602,6 +609,30 @@ fn parse_item(range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node
     }
 
     Ok(Node::item(range, checkmark, children, sub_lists))
+}
+
+fn parse_paragraph_in_item(
+    checkmark: &mut TaskListMarker,
+    range: Range<usize>,
+    iter: &mut ParserIterator<'_>,
+) -> Result<Vec<Node>> {
+    let mut children = Vec::new();
+
+    while let Some((event, range)) = iter.next() {
+        match event {
+            Event::End(TagEnd::Paragraph) => break,
+            Event::TaskListMarker(checked) => {
+                if checked {
+                    *checkmark = TaskListMarker::Checked;
+                } else {
+                    *checkmark = TaskListMarker::UnChecked;
+                }
+            }
+            _ => children.push(parse_event(event, range, iter)?),
+        }
+    }
+
+    Ok(children)
 }
 
 fn parse_list(n: Option<u64>, range: Range<usize>, iter: &mut ParserIterator<'_>) -> Result<Node> {
