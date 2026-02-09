@@ -123,28 +123,6 @@ fn test_fts_search_with_tag_filter() {
 }
 
 #[test]
-fn test_exact_match_strategy() {
-    let (_temp, workspace) = setup_fts_workspace();
-
-    // Use exact match strategy for substring matching
-    let ids = query_document_ids(
-        &workspace,
-        &[
-            "query",
-            "--match",
-            "Django",
-            "--match-strategy",
-            "exact",
-            "--output-format",
-            "ids",
-        ],
-    );
-
-    assert_eq!(ids.len(), 1);
-    assert!(ids.contains(&"python-tutorial".to_string()));
-}
-
-#[test]
 fn test_fts_search_common_term() {
     let (_temp, workspace) = setup_fts_workspace();
 

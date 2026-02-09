@@ -47,6 +47,7 @@ pub fn handle_command(root: &Path, config: Config, _force: bool) -> Result<()> {
 
     // parse and collect the data to be inserted into the db
     let mut documents = Vec::with_capacity(new.len() + updated.len());
+    let mut fts_entries: Vec<(DocumentId, String, String)> = Vec::new(); // (id, title, body)
     let mut links = Vec::new();
     let mut headings = Vec::new();
     let mut tasks = Vec::new();
@@ -56,6 +57,7 @@ pub fn handle_command(root: &Path, config: Config, _force: bool) -> Result<()> {
         &config,
         new,
         &mut documents,
+        &mut fts_entries,
         &mut links,
         &mut headings,
         &mut tasks,
@@ -66,6 +68,7 @@ pub fn handle_command(root: &Path, config: Config, _force: bool) -> Result<()> {
         &config,
         updated,
         &mut documents,
+        &mut fts_entries,
         &mut links,
         &mut headings,
         &mut tasks,
@@ -75,6 +78,9 @@ pub fn handle_command(root: &Path, config: Config, _force: bool) -> Result<()> {
     // Perform an upsert on the documents. This will clear any associated data
     // as well
     Document::update(&mut db, &documents)?;
+
+    // Populate FTS index (contentless - we manually insert)
+    populate_fts_index(&mut db, &fts_entries)?;
 
     // links needs to be handled in a special. We want to resolve the link
     // target to some actual document
@@ -118,6 +124,7 @@ fn process_new_documents(
     config: &Config,
     new: Vec<DocumentPath>,
     documents: &mut Vec<Document>,
+    fts_entries: &mut Vec<(DocumentId, String, String)>,
     links: &mut Vec<UnresolvedLink>,
     headings: &mut Vec<NewDocumentHeading>,
     tasks: &mut Vec<NewDocumentTask>,
@@ -166,6 +173,9 @@ fn process_new_documents(
             });
         }
 
+        // FTS entry (id, title, body content)
+        fts_entries.push((id.clone(), title.clone(), content));
+
         // documents
         documents.push(Document {
             id,
@@ -175,7 +185,6 @@ fn process_new_documents(
             modified,
             created,
             data: frontmatter,
-            body: content,
         });
     }
 
@@ -195,6 +204,7 @@ fn process_existing_documents(
     )>,
 
     documents: &mut Vec<Document>,
+    fts_entries: &mut Vec<(DocumentId, String, String)>,
     links: &mut Vec<UnresolvedLink>,
     headings: &mut Vec<NewDocumentHeading>,
     tasks: &mut Vec<NewDocumentTask>,
@@ -229,6 +239,9 @@ fn process_existing_documents(
             });
         }
 
+        // FTS entry (id, title, body content)
+        fts_entries.push((id.clone(), title.clone(), content));
+
         documents.push(Document {
             id,
             title,
@@ -237,9 +250,37 @@ fn process_existing_documents(
             modified,
             created,
             data: frontmatter,
-            body: content,
         });
     }
+
+    Ok(())
+}
+
+/// Populate the contentless FTS index with document content
+fn populate_fts_index(db: &mut DB, entries: &[(DocumentId, String, String)]) -> Result<()> {
+    if entries.is_empty() {
+        return Ok(());
+    }
+
+    let tx = db.transaction()?;
+    {
+        // For contentless FTS, we need to delete old entries first, then insert new ones
+        // Delete existing FTS entries for these documents
+        let delete_query = sql!("DELETE FROM document_fts WHERE rowid IN (SELECT rowid FROM document WHERE id = ?)");
+        let mut delete_stmt = tx.prepare(delete_query)?;
+
+        // Insert new FTS entries
+        let insert_query = sql!("INSERT INTO document_fts(rowid, title, body) SELECT rowid, ?2, ?3 FROM document WHERE id = ?1");
+        let mut insert_stmt = tx.prepare(insert_query)?;
+
+        for (id, title, body) in entries {
+            // Delete old entry
+            delete_stmt.execute([&id.0])?;
+            // Insert new entry
+            insert_stmt.execute(rusqlite::params![&id.0, title, body])?;
+        }
+    }
+    tx.commit()?;
 
     Ok(())
 }

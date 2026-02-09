@@ -28,7 +28,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({"key": "value"}),
-            "Test document body content".to_string(),
         );
 
         let ids = Document::insert(&mut db, &[doc.clone()]).expect("Failed to insert document");
@@ -54,7 +53,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({"test": true}),
-            "Get test body".to_string(),
         );
 
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
@@ -78,7 +76,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({"version": 1}),
-            "Original body".to_string(),
         );
 
         Document::insert(&mut db, &[doc1]).expect("Failed to insert document");
@@ -91,7 +88,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({"version": 2}),
-            "Updated body".to_string(),
         );
 
         Document::update(&mut db, &[doc2]).expect("Failed to update document");
@@ -118,7 +114,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
 
         let doc2 = Document::new(
@@ -129,7 +124,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
 
         Document::insert(&mut db, &[doc1, doc2]).expect("Failed to insert documents");
@@ -155,7 +149,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
 
@@ -194,7 +187,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
         let doc2 = Document::new(
             DocumentId("target-doc".to_string()),
@@ -204,7 +196,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
         Document::insert(&mut db, &[doc1, doc2]).expect("Failed to insert documents");
 
@@ -238,7 +229,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
 
@@ -267,7 +257,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
 
@@ -307,7 +296,6 @@ mod crud_tests {
             ModifiedTimestamp(now),
             CreatedTimestamp(now),
             serde_json::json!({}),
-            String::new(),
         );
 
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
@@ -345,7 +333,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             complex_json.clone(),
-            String::new(),
         );
 
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
@@ -368,7 +355,6 @@ mod crud_tests {
             ModifiedTimestamp(Timestamp::now()),
             CreatedTimestamp(Timestamp::now()),
             serde_json::json!({}),
-            String::new(),
         );
 
         Document::insert(&mut db, &[doc]).expect("Failed to insert document");
@@ -396,7 +382,6 @@ mod crud_tests {
                     ModifiedTimestamp(Timestamp::now()),
                     CreatedTimestamp(Timestamp::now()),
                     serde_json::json!({"index": i}),
-                    format!("Batch body {}", i),
                 )
             })
             .collect();

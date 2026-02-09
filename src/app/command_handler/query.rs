@@ -6,11 +6,9 @@ use tera::Context;
 use tera::Tera;
 use zet::core::db::DB;
 use zet::core::query::DocumentQuery;
-use zet::core::query::MatchStrategy as QueryMatchStrategy;
 use zet::core::query::SortByOption as QuerySortByOption;
 use zet::core::query::SortOrder as QuerySortOrder;
 
-use crate::app::commands::MatchStrategy;
 use crate::app::commands::OutputFormat;
 use crate::app::commands::SortByOption;
 use crate::app::commands::SortConfig;
@@ -39,7 +37,6 @@ pub fn handle_command(
     links_to: Vec<String>,
     links_from: Vec<String>,
     match_patterns: Vec<String>,
-    match_strategy: MatchStrategy,
     sort_configs: Vec<SortConfig>,
     limit: Option<usize>,
     output_format: OutputFormat,
@@ -101,15 +98,11 @@ pub fn handle_command(
         query = query.links_from(links_from);
     }
 
-    // Add match filter (combine multiple patterns with OR-style matching)
+    // Add match filter (FTS full-text search)
     if !match_patterns.is_empty() {
         // Join multiple patterns for FTS (space-separated terms are OR in FTS5)
         let combined_pattern = match_patterns.join(" OR ");
-        let query_strategy = match match_strategy {
-            MatchStrategy::FTS => QueryMatchStrategy::Fts,
-            MatchStrategy::Exact | MatchStrategy::RegularExpr => QueryMatchStrategy::Exact,
-        };
-        query = query.with_match(combined_pattern, query_strategy);
+        query = query.with_match(combined_pattern);
     }
 
     // Add sorting

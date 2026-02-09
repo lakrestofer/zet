@@ -23,13 +23,6 @@ pub enum SortOrder {
     Descending,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub enum MatchStrategy {
-    #[default]
-    Fts,
-    Exact,
-}
-
 #[derive(Debug, Default)]
 pub struct DocumentQuery {
     pub ids: Vec<String>,
@@ -48,7 +41,6 @@ pub struct DocumentQuery {
     pub links_to: Vec<String>,
     pub links_from: Vec<String>,
     pub match_pattern: Option<String>,
-    pub match_strategy: MatchStrategy,
     pub order_by: Vec<(SortByOption, SortOrder)>,
     pub limit: Option<usize>,
 }
@@ -133,9 +125,8 @@ impl DocumentQuery {
         self
     }
 
-    pub fn with_match(mut self, pattern: String, strategy: MatchStrategy) -> Self {
+    pub fn with_match(mut self, pattern: String) -> Self {
         self.match_pattern = Some(pattern);
-        self.match_strategy = strategy;
         self
     }
 
@@ -151,7 +142,7 @@ impl DocumentQuery {
 
     pub fn execute(self, db: &Connection) -> Result<Vec<Document>> {
         let mut sql = String::from(
-            r#"SELECT DISTINCT d.id, d.title, d.path, d.hash, d.modified, d.created, json(d.frontmatter), d.body
+            r#"SELECT DISTINCT d.id, d.title, d.path, d.hash, d.modified, d.created, json(d.frontmatter)
 FROM document d
 WHERE 1=1"#,
         );
@@ -259,22 +250,12 @@ WHERE 1=1"#,
             params.extend(self.links_from.into_iter().map(Value::from));
         }
 
-        // --match filter (full-text search or exact match)
+        // --match filter (full-text search)
         if let Some(pattern) = &self.match_pattern {
-            match self.match_strategy {
-                MatchStrategy::Fts => {
-                    sql.push_str(
-                        " AND d.rowid IN (SELECT rowid FROM document_fts WHERE document_fts MATCH ?)",
-                    );
-                    params.push(Value::from(pattern.clone()));
-                }
-                MatchStrategy::Exact => {
-                    sql.push_str(" AND (d.title LIKE ? OR d.body LIKE ?)");
-                    let like_pattern = format!("%{}%", pattern);
-                    params.push(Value::from(like_pattern.clone()));
-                    params.push(Value::from(like_pattern));
-                }
-            }
+            sql.push_str(
+                " AND d.rowid IN (SELECT rowid FROM document_fts WHERE document_fts MATCH ?)",
+            );
+            params.push(Value::from(pattern.clone()));
         }
 
         // ORDER BY
@@ -323,7 +304,6 @@ WHERE 1=1"#,
                     r.get::<_, ModifiedTimestamp>(4)?,
                     r.get::<_, CreatedTimestamp>(5)?,
                     r.get::<_, serde_json::Value>(6)?,
-                    r.get::<_, String>(7)?,
                 ))
             })?
             .map(|r| r.map_err(From::from))

@@ -40,7 +40,6 @@ pub struct Document {
     pub modified: ModifiedTimestamp,
     pub created: CreatedTimestamp,
     pub data: serde_json::Value,
-    pub body: String,
 }
 
 impl Document {
@@ -52,7 +51,6 @@ impl Document {
         modified: ModifiedTimestamp,
         created: CreatedTimestamp,
         data: serde_json::Value,
-        body: String,
     ) -> Self {
         Self {
             id,
@@ -62,7 +60,6 @@ impl Document {
             modified,
             created,
             data,
-            body,
         }
     }
 }
@@ -82,8 +79,7 @@ impl DbList<Document> for Document {
                     hash,
                     modified,
                     created,
-                    json(frontmatter) as frontmatter,
-                    body
+                    json(frontmatter) as frontmatter
                 from
                     document
                 "#
@@ -97,7 +93,6 @@ impl DbList<Document> for Document {
                 r.get(4)?,
                 r.get(5)?,
                 r.get(6)?,
-                r.get(7)?,
             ))
         })?
         .map(|f| f.map_err(From::from))
@@ -116,8 +111,7 @@ impl DbGet<DocumentId, Document> for Document {
                 hash,
                 modified,
                 created,
-                json(frontmatter) as frontmatter,
-                body
+                json(frontmatter) as frontmatter
             from
                 document
             where
@@ -133,7 +127,6 @@ impl DbGet<DocumentId, Document> for Document {
                     r.get(4)?,
                     r.get(5)?,
                     r.get(6)?,
-                    r.get(7)?,
                 ))
             })?)
     }
@@ -156,8 +149,7 @@ impl DbInsert<Document, DocumentId> for Document {
                     ?4,        -- hash     (integer)
                     ?5,        -- modified (text)
                     ?6,        -- created  (text)
-                    jsonb(?7), -- frontmatter
-                    ?8         -- body     (text)
+                    jsonb(?7)  -- frontmatter
                 );
                 "#
             );
@@ -171,8 +163,7 @@ impl DbInsert<Document, DocumentId> for Document {
                     d.hash,
                     &d.modified,
                     &d.created,
-                    &d.data,
-                    &d.body
+                    &d.data
                 ])?;
                 ids.push(d.id.clone());
             }
@@ -200,8 +191,7 @@ impl DbUpdate<Document, DocumentId> for Document {
                     ?4,        -- hash     (integer)
                     ?5,        -- modified (text)
                     ?6,        -- created  (text)
-                    jsonb(?7), -- frontmatter
-                    ?8         -- body     (text)
+                    jsonb(?7)  -- frontmatter
                 ) on conflict(
                     id
                 ) do update set
@@ -210,8 +200,7 @@ impl DbUpdate<Document, DocumentId> for Document {
                     hash        = ?4,
                     modified    = ?5,
                     created     = ?6,
-                    frontmatter = jsonb(?7),
-                    body        = ?8
+                    frontmatter = jsonb(?7)
                 "#
             );
             let mut query = tx.prepare(query_str)?;
@@ -223,8 +212,7 @@ impl DbUpdate<Document, DocumentId> for Document {
                     d.hash,
                     &d.modified,
                     &d.created,
-                    &d.data,
-                    &d.body
+                    &d.data
                 ])?;
                 ids.push(d.id.clone());
             }

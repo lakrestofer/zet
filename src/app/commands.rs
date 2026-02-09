@@ -90,9 +90,6 @@ pub enum Command {
         #[arg(long = "match", value_delimiter = ',')]
         match_patterns: Vec<String>,
 
-        #[arg(long, default_value = "fts")]
-        match_strategy: MatchStrategy,
-
         ////////////////////////////////////////////////////////////
         // output options
         ////////////////////////////////////////////////////////////
@@ -198,18 +195,6 @@ pub enum OutputFormat {
     Template,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
-pub enum MatchStrategy {
-    FTS,
-    Exact,
-    RegularExpr,
-}
-
-impl Display for MatchStrategy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
 impl Display for OutputFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
