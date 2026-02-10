@@ -135,6 +135,11 @@ pub fn handle_command(
                 write!(writer, "{}{separator}", d.id.0)?;
             }
         }
+        OutputFormat::Path => {
+            for d in documents {
+                write!(writer, "{:?}{separator}", d.path.0)?;
+            }
+        }
         OutputFormat::Json => {
             if pretty {
                 serde_json::to_writer_pretty(writer, &documents)?;
@@ -169,5 +174,5 @@ pub fn handle_command(
 }
 
 const USER_INPUT_TEMPLATE_NAME: &str = "user_input_template";
-const DEFAULT_TEMPLATE: &str = r#"# {{ title }}\n"#;
+const DEFAULT_TEMPLATE: &str = "{{ id }}\t #{{ title }}\n";
 const DEFAULT_TEMPLATE_NAME: &str = "default_template";

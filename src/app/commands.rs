@@ -101,7 +101,7 @@ pub enum Command {
         limit: Option<usize>,
         #[arg(long)]
         /// how each document should be formatted
-        output_format: OutputFormat,
+        output_format: Option<OutputFormat>,
         #[arg(long)]
         /// separator between each formatted document
         delimiter: Option<String>,
@@ -118,27 +118,29 @@ pub enum Command {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct SortConfig {
     pub by: SortByOption,
     pub order: SortOrder,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum SortOrder {
+    #[default]
     Ascending,
     Descending,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Default, Debug, Clone, ValueEnum)]
 pub enum SortByOption {
-    Modified,
-    Created,
+    #[default]
     Id,
     Path,
     Title,
     // Random,
     // WordCount,
+    Modified,
+    Created,
 }
 
 fn parse_sort_option(input: &str) -> zet::result::Result<SortConfig> {
@@ -188,9 +190,11 @@ fn parse_sort_option(input: &str) -> zet::result::Result<SortConfig> {
     Ok(SortConfig { by, order })
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Default, Debug, Clone, ValueEnum)]
 pub enum OutputFormat {
+    #[default]
     Ids,
+    Path,
     Json,
     Template,
 }
