@@ -74,7 +74,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
                 match_patterns,
                 sort_configs,
                 limit,
-                output_format.unwrap_or(crate::app::commands::OutputFormat::Ids),
+                output_format,
                 delimiter,
                 pretty,
                 template,

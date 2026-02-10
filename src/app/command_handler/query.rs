@@ -174,5 +174,5 @@ pub fn handle_command(
 }
 
 const USER_INPUT_TEMPLATE_NAME: &str = "user_input_template";
-const DEFAULT_TEMPLATE: &str = "{{ id }}\t #{{ title }}\n";
+const DEFAULT_TEMPLATE: &str = "{{ id }}\t # {{ title }}\n";
 const DEFAULT_TEMPLATE_NAME: &str = "default_template";

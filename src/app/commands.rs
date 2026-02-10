@@ -99,9 +99,9 @@ pub enum Command {
         #[arg(long)]
         /// limit the number of results returned
         limit: Option<usize>,
-        #[arg(long)]
+        #[arg(long, value_enum, default_value_t=OutputFormat::Template)]
         /// how each document should be formatted
-        output_format: Option<OutputFormat>,
+        output_format: OutputFormat,
         #[arg(long)]
         /// separator between each formatted document
         delimiter: Option<String>,
@@ -190,13 +190,12 @@ fn parse_sort_option(input: &str) -> zet::result::Result<SortConfig> {
     Ok(SortConfig { by, order })
 }
 
-#[derive(Default, Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum)]
 pub enum OutputFormat {
-    #[default]
+    Template,
     Ids,
     Path,
     Json,
-    Template,
 }
 
 impl Display for OutputFormat {
