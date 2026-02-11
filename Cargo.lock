@@ -2394,6 +2394,7 @@ dependencies = [
  "sql_minifier",
  "tera",
  "thiserror 2.0.16",
+ "toml 0.8.23",
  "twox-hash",
  "uuid",
 ]

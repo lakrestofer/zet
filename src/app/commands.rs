@@ -116,6 +116,34 @@ pub enum Command {
     RawParse {
         path: PathBuf,
     },
+    /// Create a new note from a template
+    Create {
+        /// Title of the new note
+        title: String,
+        /// Optional inline content (mapped to {{content}})
+        content: Option<String>,
+        /// Select a group (determines template + output directory)
+        #[arg(long)]
+        group: Option<String>,
+        /// Explicitly select a template (name or path)
+        #[arg(long)]
+        template: Option<String>,
+        /// Read content from stdin (mutually exclusive with content arg)
+        #[arg(long, default_value_t = false)]
+        stdin: bool,
+        /// Inline arbitrary data as JSON
+        #[arg(long)]
+        data_json: Option<String>,
+        /// Inline arbitrary data as TOML
+        #[arg(long)]
+        data_toml: Option<String>,
+        /// Load arbitrary data from a JSON file
+        #[arg(long)]
+        data_json_path: Option<PathBuf>,
+        /// Load arbitrary data from a TOML file
+        #[arg(long)]
+        data_toml_path: Option<PathBuf>,
+    },
 }
 
 #[derive(Default, Debug, Clone)]

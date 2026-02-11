@@ -16,6 +16,7 @@ pub mod result {
 }
 
 pub mod config {
+    use std::collections::HashMap;
     use std::path::Path;
 
     use figment::Figment;
@@ -28,9 +29,21 @@ pub mod config {
     use crate::result::Result;
 
     #[derive(Default, Debug, Serialize, Deserialize)]
+    pub struct GroupConfig {
+        /// Paths relative to collection root that belong to this group
+        pub directories: Vec<String>,
+        /// Template name or path. If it contains '.', treated as path in .zet/templates/<path>.
+        /// Otherwise tries .zet/templates/<name>.md
+        pub template: Option<String>,
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize)]
     pub struct Config {
         // pub root: PathBuf,
+        #[serde(default)]
         pub front_matter_format: FrontMatterFormat,
+        #[serde(default)]
+        pub group: HashMap<String, GroupConfig>,
     }
 
     impl Config {

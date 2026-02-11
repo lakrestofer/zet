@@ -1,5 +1,6 @@
 use zet::core::parser::FrontMatterFormat;
 
+pub mod create;
 pub mod index;
 pub mod init;
 pub mod parse;
@@ -20,6 +21,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
             let root = zet::core::resolve_root(root)?;
             let config = zet::config::Config {
                 front_matter_format: FrontMatterFormat::Yaml,
+                group: Default::default(),
             };
             index::handle_command(&root, config, force)?
         }
@@ -51,6 +53,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
 
             let config = zet::config::Config {
                 front_matter_format: FrontMatterFormat::Yaml,
+                group: Default::default(),
             };
 
             query::handle_command(
@@ -82,6 +85,28 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
         }
         Command::Lsp => todo!(),
         Command::Format => todo!(),
+        Command::Create {
+            title,
+            content,
+            group,
+            template,
+            stdin,
+            data_json,
+            data_toml,
+            data_json_path,
+            data_toml_path,
+        } => create::handle_command(
+            root,
+            title,
+            content,
+            group,
+            template,
+            stdin,
+            data_json,
+            data_toml,
+            data_json_path,
+            data_toml_path,
+        )?,
     }
     Ok(())
 }
