@@ -3,6 +3,7 @@ use zet::core::parser::FrontMatterFormat;
 pub mod create;
 pub mod index;
 pub mod init;
+pub mod lsp;
 pub mod parse;
 pub mod query;
 pub mod raw_parse;
@@ -83,7 +84,7 @@ pub fn handle_command(command: Command, root: Option<PathBuf>) -> Result<()> {
                 template,
             )?;
         }
-        Command::Lsp => todo!(),
+        Command::Lsp => {}
         Command::Format => todo!(),
         Command::Create {
             title,
